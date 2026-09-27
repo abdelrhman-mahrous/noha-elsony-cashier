@@ -15,6 +15,7 @@ import OfferBanner from '../components/OfferBanner'
 import Calculator from '../components/Calculator'
 import PriceEditModal from '../components/PriceEditModal'
 import CancelReasonModal from '../components/CancelReasonModal'
+import WalkInModal from '../components/WalkInModal'
 
 export default function PosPage() {
   const navigate = useNavigate()
@@ -29,6 +30,7 @@ export default function PosPage() {
   const [countExtraAsTip, setCountExtraAsTip] = useState(true)
 
   // Modals
+  const [walkInOpen, setWalkInOpen] = useState(false)
   const [editModal, setEditModal] = useState(null) // { index, item }
   const [cancelItemModal, setCancelItemModal] = useState(null) // { index, item }
   const [cancelApptModal, setCancelApptModal] = useState(false)
@@ -39,21 +41,18 @@ export default function PosPage() {
     searchRef.current?.focus()
   }, [])
 
-  async function handleSearch(e) {
-    e?.preventDefault()
-    const input = searchInput.trim()
-    if (!input) return
+  async function loadAppointmentByCode(code) {
+    const cleanCode = (code || '').trim()
+    if (!cleanCode) return
 
+    setSearchInput(cleanCode)
     setLoading(true)
     setDetails(null)
 
     try {
-      // محاولة أولى بكود الموعد
-      let found = await getPosAppointmentByCode(input)
-
-      // Fallback — رقم هاتف
+      let found = await getPosAppointmentByCode(cleanCode)
       if (!found) {
-        const list = await searchByPhone(input)
+        const list = await searchByPhone(cleanCode)
         if (list.length > 0) {
           found = await buildPosDetails(list[0])
         }
@@ -75,6 +74,11 @@ export default function PosPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  async function handleSearch(e) {
+    e?.preventDefault()
+    await loadAppointmentByCode(searchInput)
   }
 
   // ══ حسابات الإجمالي ══
@@ -207,12 +211,12 @@ export default function PosPage() {
         {/* Walk-in banner */}
         <div
           className="walkin-banner"
-          onClick={() => showToast('ميزة Walk-in — ستُتاح قريباً عبر تطبيق الجوال', 'info')}
+          onClick={() => setWalkInOpen(true)}
         >
           <div className="walkin-banner__icon">✂️</div>
           <div className="walkin-banner__text">
-            <div className="walkin-banner__title">محاسبة موعد بدون حجز مسبق</div>
-            <div className="walkin-banner__sub">تسجيل خدمات مباشرة للعميل الحاضر في الصالون</div>
+            <div className="walkin-banner__title">محاسبة موعد بدون حجز مسبق (Walk-in)</div>
+            <div className="walkin-banner__sub">تسجيل خدمات وعروض ومنتجات مباشرة للعميل الحاضر في الصالون</div>
           </div>
           <span className="walkin-banner__arrow">←</span>
         </div>
@@ -375,6 +379,14 @@ export default function PosPage() {
           title="إلغاء الموعد بالكامل"
           onConfirm={handleCancelAppt}
           onClose={() => setCancelApptModal(false)}
+        />
+      )}
+
+      {/* Walk-in modal */}
+      {walkInOpen && (
+        <WalkInModal
+          onClose={() => setWalkInOpen(false)}
+          onSuccess={(code) => loadAppointmentByCode(code)}
         />
       )}
     </>

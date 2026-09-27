@@ -374,3 +374,276 @@ export async function getPosHistory({ limit = 20, offset = 0, query = '' }) {
   if (error) throw new Error('فشل تحميل السجل: ' + error.message)
   return data || []
 }
+
+// ══════════════════════════════════════════════════════════════
+// ✂️ دوال الـ Walk-in (حجز مباشر ومحاسبة فورية في الصالون)
+// ══════════════════════════════════════════════════════════════
+
+export async function getWalkInServicesTree() {
+  try {
+    const { data, error } = await supabase.rpc('get_services_tree')
+    if (!error && Array.isArray(data) && data.length > 0) {
+      return data
+    }
+  } catch (e) {
+    console.warn('get_services_tree RPC failed, trying fallback:', e.message)
+  }
+
+  // Fallback 1: استعلام الجداول المنفصلة
+  try {
+    const { data: categories } = await supabase
+      .from('service_categories')
+      .select('id, name_ar, icon_name, sort_order')
+      .order('sort_order')
+
+    if (categories && categories.length > 0) {
+      const { data: groups } = await supabase
+        .from('service_groups')
+        .select('id, name_ar, category_id, sort_order')
+        .order('sort_order')
+
+      const { data: items } = await supabase
+        .from('service_items')
+        .select('id, name_ar, group_id, price, min_price, max_price, has_price_range, duration_minutes, sort_order, note_ar')
+        .order('sort_order')
+
+      const groupsMap = {}
+      ;(groups || []).forEach(g => {
+        groupsMap[g.id] = { ...g, items: [] }
+      })
+
+      ;(items || []).forEach(it => {
+        if (groupsMap[it.group_id]) {
+          groupsMap[it.group_id].items.push(it)
+        }
+      })
+
+      const catMap = categories.map(c => ({
+        ...c,
+        groups: (groups || []).filter(g => g.category_id === c.id).map(g => groupsMap[g.id] || { ...g, items: [] })
+      }))
+
+      return catMap
+    }
+  } catch (_) {}
+
+  // Fallback 2: جدول services البسيط
+  try {
+    const { data: services } = await supabase
+      .from('services')
+      .select('*')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
+
+    if (services && services.length > 0) {
+      const cats = {}
+      services.forEach(s => {
+        const catKey = s.category || 'عام'
+        if (!cats[catKey]) {
+          cats[catKey] = {
+            id: catKey,
+            name_ar: s.category_ar || catKey,
+            icon_name: 'cut',
+            groups: [{
+              id: catKey + '-grp',
+              name_ar: s.category_ar || catKey,
+              items: []
+            }]
+          }
+        }
+        cats[catKey].groups[0].items.push({
+          id: s.id,
+          name_ar: s.arabic_name || s.name,
+          price: s.base_price || s.price || 0,
+          duration_minutes: s.duration_minutes || 30,
+          note_ar: s.description,
+        })
+      })
+      return Object.values(cats)
+    }
+  } catch (_) {}
+
+  return []
+}
+
+export async function getWalkInOffers() {
+  try {
+    const { data, error } = await supabase
+      .from('service_offers')
+      .select('*, service_offer_targets(target_type, target_id, discount_type, discount_value)')
+      .eq('is_active', true)
+      .order('sort_order', { ascending: true })
+
+    if (!error && data) return data
+  } catch (e) {
+    console.warn('Failed to load active offers:', e.message)
+  }
+  return []
+}
+
+export async function getWalkInBarbers() {
+  try {
+    const { data, error } = await supabase
+      .from('barbers')
+      .select('id, name, phone, rating, avatar_url, is_active')
+      .eq('is_active', true)
+      .order('name')
+
+    if (!error && data && data.length > 0) return data
+  } catch (_) {}
+
+  try {
+    const { data: staffData } = await supabase
+      .from('salon_staff')
+      .select('id, name, role, phone, is_active')
+      .eq('is_active', true)
+    if (staffData && staffData.length > 0) return staffData
+  } catch (_) {}
+
+  return [
+    { id: '1', name: 'نهي السني', role: 'خبير التجميل والميك أب الرئيسي' },
+    { id: '2', name: 'مروة أحمد', role: 'أخصائية تسريحات وعلاج الشعر' },
+    { id: '3', name: 'سارة خالد', role: 'أخصائية عناية بالبشرة وهيدرافيشل' },
+  ]
+}
+
+export async function getWalkInProducts() {
+  try {
+    const { data, error } = await supabase
+      .from('cashier_products')
+      .select('*')
+      .order('name')
+
+    if (!error && data && data.length > 0) return data
+  } catch (_) {}
+
+  try {
+    const { data } = await supabase.from('products').select('*')
+    if (data && data.length > 0) return data
+  } catch (_) {}
+
+  return []
+}
+
+export async function getWalkInAddons() {
+  try {
+    const { data, error } = await supabase
+      .from('addons')
+      .select('*')
+      .order('arabic_name')
+
+    if (!error && data) return data
+  } catch (e) {
+    console.warn('Failed to load addons:', e.message)
+  }
+  return []
+}
+
+export async function createWalkInAppointment({
+  customerName,
+  customerPhone,
+  barberId,
+  selectedServices = [],
+  selectedProducts = [],
+  selectedAddons = [],
+  selectedOffer = null,
+  originalPrice = 0,
+  discountAmount = 0,
+  finalPrice = 0,
+  notes = '',
+}) {
+  const randomCode = Math.floor(10000 + Math.random() * 90000).toString()
+  const today = new Date()
+  const dateStr = today.toISOString().split('T')[0]
+  const timeStr = `${String(today.getHours()).padStart(2, '0')}:${String(today.getMinutes()).padStart(2, '0')}`
+
+  const cashierUser = (await supabase.auth.getUser())?.data?.user
+  const cashierId = cashierUser?.id || null
+
+  const fullNotes = `(Walk-in) ${notes || ''}`.trim()
+
+  // 1. إدراج الموعد الرئيسي
+  const { data: appt, error: apptError } = await supabase
+    .from('appointments')
+    .insert({
+      appointment_code: randomCode,
+      user_name: (customerName || 'عميل مباشر').trim(),
+      user_phone: (customerPhone || '').trim(),
+      barber_id: barberId || null,
+      user_id: cashierId,
+      appointment_date: dateStr,
+      appointment_time: timeStr,
+      booking_type: 'cashier_walkin',
+      status: 'pending',
+      price: finalPrice,
+      original_price: originalPrice,
+      discount_amount: discountAmount,
+      offer_id: selectedOffer?.id || null,
+      offer_title_ar: selectedOffer?.title_ar || selectedOffer?.title || null,
+      notes: fullNotes,
+      paid_amount: 0,
+      tip_amount: 0,
+    })
+    .select()
+    .single()
+
+  if (apptError) throw new Error('فشل إنشاء الموعد: ' + apptError.message)
+
+  const appointmentId = appt.id
+
+  // 2. إدراج الخدمات في appointment_services
+  if (selectedServices.length > 0) {
+    const serviceRows = selectedServices.map(s => ({
+      appointment_id: appointmentId,
+      service_id: s.id,
+      service_name: s.name_ar || s.arabic_name || s.name || 'خدمة صالون',
+      price: s.unitPrice !== undefined ? s.unitPrice : (s.price || 0),
+      original_price: s.originalUnitPrice !== undefined ? s.originalUnitPrice : (s.price || 0),
+      service_type: s.service_type || 'service',
+      status: 'delivered',
+      is_custom_price: (s.unitPrice === 0 || s.isCustomPrice === true),
+    }))
+
+    const { error: srvErr } = await supabase.from('appointment_services').insert(serviceRows)
+    if (srvErr) console.warn('Error inserting appointment_services:', srvErr.message)
+  }
+
+  // 3. إدراج المنتجات والبوفيه في appointment_products
+  const allProductItems = [
+    ...selectedProducts.map(p => ({
+      appointment_id: appointmentId,
+      product_id: p.id,
+      product_name: p.name || p.title || 'منتج',
+      unit_price: p.price || p.unitPrice || 0,
+      original_price: p.original_price || p.price || 0,
+      final_unit_price: p.price || p.unitPrice || 0,
+      quantity: p.quantity || 1,
+      total_price: (p.price || 0) * (p.quantity || 1),
+      status: 'delivered',
+      color_name: 'منتجات العناية',
+    })),
+    ...selectedAddons.map(a => ({
+      appointment_id: appointmentId,
+      product_id: a.id,
+      product_name: a.arabic_name || a.name || 'بوفيه / إضافة',
+      unit_price: a.price || 0,
+      original_price: a.price || 0,
+      final_unit_price: a.price || 0,
+      quantity: a.quantity || 1,
+      total_price: (a.price || 0) * (a.quantity || 1),
+      status: 'delivered',
+      color_name: 'بوفيه وضيافة',
+    })),
+  ]
+
+  if (allProductItems.length > 0) {
+    const { error: prodErr } = await supabase.from('appointment_products').insert(allProductItems)
+    if (prodErr) console.warn('Error inserting appointment_products:', prodErr.message)
+  }
+
+  return {
+    appointmentId,
+    appointmentCode: randomCode,
+    appointment: appt,
+  }
+}

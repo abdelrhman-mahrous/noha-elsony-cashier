@@ -1,0 +1,1220 @@
+/* ═══════════════════════════════════════════════════════════════
+   StaffPalette — صالون نهي السني (Womans Owner Version)
+   تطابق كامل 100% مع ألوان وتصميم تطبيق فلاتر
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  --staff-bg: #FCF6F2;
+  --staff-surface: #FFFFFF;
+  --staff-rose: #B76E79;
+  --staff-rose-dark: #7D2E46;
+  --staff-ink: #3B2C2E;
+  --staff-muted: #9A8A85;
+  --staff-divider: #EFE2DC;
+  --staff-border: #EFE2DC;
+  --staff-success: #4C7A6B;
+  --staff-warning: #C97B3E;
+  --staff-absent: #3D72B4;
+}
+
+/* ── الغلاف الأساسي لنسخة الأونر ── */
+.owner-shell {
+  min-height: 100vh;
+  background-color: var(--staff-bg) !important;
+  color: var(--staff-ink) !important;
+  font-family: 'Cairo', system-ui, -apple-system, sans-serif;
+  direction: rtl;
+  display: flex;
+  flex-direction: column;
+}
+
+.owner-main {
+  flex: 1;
+}
+
+/* ── الرأس العلوي (Owner TopBar) ── */
+.owner-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  background: var(--staff-surface);
+  box-shadow: 0 4px 12px rgba(59, 44, 46, 0.04);
+  border-bottom: 1px solid var(--staff-border);
+  padding: 14px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.owner-topbar__brand {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  text-decoration: none;
+  color: var(--staff-ink);
+}
+
+.owner-topbar__logo {
+  width: 52px;
+  height: 52px;
+  background: linear-gradient(135deg, var(--staff-rose-dark) 0%, var(--staff-rose) 100%);
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  box-shadow: 0 3px 8px rgba(125, 46, 70, 0.25);
+  flex-shrink: 0;
+}
+
+.owner-topbar__title {
+  font-size: 19px;
+  font-weight: 800;
+  color: var(--staff-ink);
+  line-height: 1.2;
+}
+
+.owner-topbar__subtitle {
+  font-size: 12.5px;
+  color: var(--staff-muted);
+  font-weight: 500;
+  margin-top: 2px;
+}
+
+.owner-topbar__nav {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.owner-nav-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--staff-muted);
+  border-radius: 10px;
+  padding: 7px 14px;
+  font-family: 'Cairo', sans-serif;
+  font-size: 13.5px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-decoration: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.owner-nav-btn:hover {
+  background: rgba(183, 110, 121, 0.1);
+  color: var(--staff-rose-dark);
+}
+
+.owner-nav-btn--active {
+  background: rgba(125, 46, 70, 0.08);
+  border-color: rgba(125, 46, 70, 0.2);
+  color: var(--staff-rose-dark);
+}
+
+.owner-logout-btn {
+  background: rgba(183, 110, 121, 0.12);
+  border: none;
+  color: var(--staff-rose-dark);
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  transition: all 0.2s ease;
+}
+
+.owner-logout-btn:hover {
+  background: var(--staff-rose-dark);
+  color: #fff;
+  transform: scale(1.05);
+}
+
+/* ── Container ── */
+.owner-container {
+  max-width: 1240px;
+  margin: 0 auto;
+  padding: 24px 20px;
+  width: 100%;
+}
+
+.owner-page-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.owner-page-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--staff-ink);
+  margin: 0 0 4px;
+}
+
+.owner-page-subtitle {
+  font-size: 13px;
+  color: var(--staff-muted);
+  margin: 0;
+}
+
+/* ── قسم العنوان التعريفي للشبكة (نفس الفلاتر بالضبط) ── */
+.owner-section-title-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 20px 20px 14px;
+}
+
+.owner-section-indicator {
+  width: 5px;
+  height: 20px;
+  background-color: var(--staff-rose-dark);
+  border-radius: 4px;
+}
+
+.owner-section-heading {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--staff-ink);
+  margin: 0;
+}
+
+/* ── شبكة الكروت التفاعلية (مطابقة لـ _OwnerGridCard) ── */
+.owner-cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+  padding: 0 20px 40px;
+}
+
+@media (min-width: 1100px) {
+  .owner-cards-grid {
+    grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  }
+}
+
+.owner-grid-card {
+  position: relative;
+  height: 260px;
+  border-radius: 22px;
+  overflow: hidden;
+  box-shadow: 0 4px 10px rgba(59, 44, 46, 0.08);
+  text-decoration: none;
+  display: block;
+  transition: transform 0.2s cubic-bezier(0.2, 0, 0.1, 1), box-shadow 0.2s ease;
+  background-color: var(--staff-rose-dark);
+}
+
+.owner-grid-card:hover {
+  transform: scale(0.985);
+  box-shadow: 0 6px 16px rgba(59, 44, 46, 0.14);
+}
+
+.owner-grid-card__image {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.4s ease;
+}
+
+.owner-grid-card:hover .owner-grid-card__image {
+  transform: scale(1.04);
+}
+
+/* التدرج اللوني لحماية النصوص والإظهار الفاخر (مطابق لـ Flutter) */
+.owner-grid-card__gradient {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to top,
+    rgba(59, 44, 46, 0.92) 0%,
+    rgba(125, 46, 70, 0.65) 55%,
+    transparent 100%
+  );
+  z-index: 1;
+}
+
+.owner-grid-card__content {
+  position: relative;
+  z-index: 2;
+  height: 100%;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-sizing: border-box;
+}
+
+.owner-grid-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.owner-grid-card__icon-box {
+  width: 40px;
+  height: 40px;
+  background: rgba(255, 255, 255, 0.22);
+  border: 1px solid rgba(255, 255, 255, 0.35);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  color: #fff;
+  backdrop-filter: blur(8px);
+}
+
+.owner-grid-card__badge {
+  background: rgba(125, 46, 70, 0.85);
+  border: 0.8px solid rgba(255, 255, 255, 0.3);
+  border-radius: 20px;
+  padding: 5px 11px;
+  color: #ffffff;
+  font-size: 11px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.owner-grid-card__bottom {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.owner-grid-card__title {
+  color: #ffffff;
+  font-size: 17px;
+  font-weight: 800;
+  margin: 0;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.45);
+  line-height: 1.3;
+}
+
+.owner-grid-card__subtitle {
+  color: rgba(255, 255, 255, 0.88);
+  font-size: 11.5px;
+  line-height: 1.35;
+  margin: 0;
+}
+
+/* ── الكروت العادية في الصفحات الفرعية ── */
+.owner-card {
+  background: var(--staff-surface);
+  border-radius: 20px;
+  border: 1px solid var(--staff-border);
+  box-shadow: 0 2px 10px rgba(59, 44, 46, 0.04);
+  padding: 20px;
+  margin-bottom: 20px;
+}
+
+.owner-card__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--staff-divider);
+}
+
+.owner-card__title {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--staff-ink);
+  margin: 0;
+}
+
+.owner-two-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .owner-two-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+.owner-empty-state {
+  text-align: center;
+  padding: 30px;
+  color: var(--staff-muted);
+  font-size: 14px;
+  background: #fdfaf8;
+  border-radius: 12px;
+  border: 1px dashed var(--staff-border);
+}
+
+/* ── Financial Cards & Subpages ── */
+.owner-finance-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 14px;
+  margin-bottom: 24px;
+}
+
+.owner-finance-card {
+  background: var(--staff-surface);
+  border: 1px solid var(--staff-border);
+  border-radius: 16px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: 0 2px 8px rgba(59, 44, 46, 0.04);
+}
+
+.owner-finance-card--gross {
+  border-right: 4px solid var(--staff-success);
+}
+
+.owner-finance-card--net {
+  border-right: 4px solid var(--staff-rose-dark);
+  background: linear-gradient(to left, rgba(125, 46, 70, 0.04), #ffffff);
+}
+
+.owner-finance-card--danger {
+  border-right: 4px solid #ef4444;
+}
+
+.owner-finance-card__icon {
+  font-size: 22px;
+  margin-bottom: 4px;
+}
+
+.owner-finance-card__label {
+  font-size: 13px;
+  color: var(--staff-muted);
+  font-weight: 600;
+}
+
+.owner-finance-card__value {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--staff-ink);
+}
+
+.owner-finance-card__value small {
+  font-size: 13px;
+  color: var(--staff-muted);
+  margin-right: 4px;
+}
+
+.owner-finance-card__sub {
+  font-size: 11px;
+  color: var(--staff-muted);
+  margin-top: 4px;
+}
+
+/* ── فلاتر الفترات ── */
+.owner-filters-card {
+  background: var(--staff-surface);
+  border: 1px solid var(--staff-border);
+  border-radius: 16px;
+  padding: 12px 16px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.owner-period-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.owner-period-tab {
+  background: transparent;
+  border: 1px solid var(--staff-border);
+  color: var(--staff-muted);
+  padding: 7px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.owner-period-tab:hover {
+  background: rgba(183, 110, 121, 0.1);
+  color: var(--staff-rose-dark);
+}
+
+.owner-period-tab--active {
+  background: var(--staff-rose-dark);
+  border-color: var(--staff-rose-dark);
+  color: #ffffff;
+}
+
+/* ── Team & Staff Chips ── */
+.owner-staff-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.owner-staff-chip {
+  background: var(--staff-surface);
+  border: 1px solid var(--staff-border);
+  border-radius: 30px;
+  padding: 6px 14px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.owner-staff-chip--present {
+  border-color: var(--staff-success);
+}
+
+.owner-staff-chip--absent {
+  border-color: var(--staff-absent);
+  opacity: 0.6;
+}
+
+.owner-staff-chip__status-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--staff-success);
+}
+
+.owner-staff-chip--absent .owner-staff-chip__status-dot {
+  background: var(--staff-absent);
+}
+
+/* ── Team Cards Grid ── */
+.owner-team-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.owner-team-card {
+  background: var(--staff-surface);
+  border: 1px solid var(--staff-border);
+  border-radius: 20px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  box-shadow: 0 2px 8px rgba(59, 44, 46, 0.04);
+}
+
+.owner-team-card__avatar {
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--staff-rose-dark) 0%, var(--staff-rose) 100%);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 800;
+  font-size: 18px;
+}
+
+.owner-team-card__name {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--staff-ink);
+}
+
+.owner-team-card__role {
+  font-size: 13px;
+  color: var(--staff-muted);
+}
+
+/* ── Offers Grid ── */
+.owner-offers-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 16px;
+}
+
+.owner-offer-card {
+  background: var(--staff-surface);
+  border: 1px solid var(--staff-border);
+  border-radius: 20px;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 2px 8px rgba(59, 44, 46, 0.04);
+}
+
+/* ── Reviews Grid ── */
+.owner-reviews-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 16px;
+}
+
+.owner-review-card {
+  background: var(--staff-surface);
+  border: 1px solid var(--staff-border);
+  border-radius: 18px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 2px 8px rgba(59, 44, 46, 0.04);
+}
+
+.owner-review-card__stars {
+  color: #f59e0b;
+  font-size: 16px;
+}
+
+.owner-review-card__comment {
+  font-size: 13.5px;
+  color: var(--staff-ink);
+  line-height: 1.5;
+  margin: 0;
+}
+
+.owner-review-card__meta {
+  font-size: 12px;
+  color: var(--staff-muted);
+  display: flex;
+  justify-content: space-between;
+}
+
+/* ── Tasks list ── */
+.owner-tasks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.owner-task-item {
+  background: #fdfaf8;
+  border: 1px solid var(--staff-border);
+  border-radius: 14px;
+  padding: 14px;
+}
+
+.owner-task-item__client {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--staff-ink);
+}
+
+.owner-task-item__phone {
+  font-size: 12.5px;
+  color: var(--staff-muted);
+}
+
+.owner-task-service-tag {
+  display: inline-block;
+  background: rgba(183, 110, 121, 0.12);
+  color: var(--staff-rose-dark);
+  font-size: 12px;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 20px;
+  margin-top: 6px;
+  margin-left: 6px;
+}
+
+/* ── الشارات (Badges) ── */
+.owner-shell .badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.owner-shell .badge--success {
+  background: rgba(76, 122, 107, 0.12);
+  color: var(--staff-success);
+}
+
+.owner-shell .badge--danger {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+
+.owner-shell .badge--warning {
+  background: rgba(201, 123, 62, 0.12);
+  color: var(--staff-warning);
+}
+
+.owner-shell .badge--gold {
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+}
+
+.owner-shell .badge--info {
+  background: rgba(61, 114, 180, 0.12);
+  color: var(--staff-absent);
+}
+
+/* ── جداول البيانات ── */
+.owner-shell table {
+  width: 100%;
+  border-collapse: collapse;
+  color: var(--staff-ink);
+}
+
+.owner-shell table th {
+  background: #fbf5f1;
+  color: var(--staff-muted);
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 12px 14px;
+  text-align: right;
+  border-bottom: 1px solid var(--staff-divider);
+}
+
+.owner-shell table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--staff-divider);
+  font-size: 13.5px;
+  color: var(--staff-ink);
+}
+
+/* ── الحقول والنماذج ── */
+.owner-shell .form-input {
+  background: #ffffff;
+  border: 1px solid var(--staff-border);
+  color: var(--staff-ink);
+  border-radius: 12px;
+  padding: 10px 14px;
+  font-family: inherit;
+  font-size: 14px;
+  width: 100%;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.owner-shell .form-input:focus {
+  border-color: var(--staff-rose-dark);
+  box-shadow: 0 0 0 3px rgba(125, 46, 70, 0.1);
+}
+
+.owner-shell .form-label {
+  display: block;
+  margin-bottom: 6px;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--staff-ink);
+}
+
+.owner-shell .btn--primary {
+  background: var(--staff-rose-dark) !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 12px;
+  padding: 10px 18px;
+  font-weight: 800;
+  font-size: 14px;
+  cursor: pointer;
+  box-shadow: 0 3px 8px rgba(125, 46, 70, 0.2);
+}
+
+.owner-shell .btn--secondary {
+  background: #f5ece7 !important;
+  color: var(--staff-ink) !important;
+  border: 1px solid var(--staff-border) !important;
+  border-radius: 12px;
+  padding: 10px 18px;
+  font-weight: 700;
+  font-size: 14px;
+  cursor: pointer;
+}
+
+/* ── النوافذ المنبثقة (Modals) ── */
+.owner-shell .modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(59, 44, 46, 0.45);
+  backdrop-filter: blur(6px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.owner-shell .modal-card {
+  background: #ffffff;
+  border-radius: 22px;
+  width: 100%;
+  max-width: 480px;
+  padding: 24px;
+  box-shadow: 0 16px 40px rgba(59, 44, 46, 0.15);
+  border: 1px solid var(--staff-border);
+}
+
+.owner-shell .modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--staff-divider);
+}
+
+.owner-shell .modal-title {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--staff-ink);
+  margin: 0;
+}
+
+.owner-shell .modal-close-btn {
+  background: #f5ece7;
+  border: none;
+  color: var(--staff-muted);
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.owner-shell .modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 20px;
+}
+
+/* ── استجابة الشاشات الصغيرة (Responsive) ── */
+@media (max-width: 768px) {
+  .owner-topbar {
+    padding: 12px 16px;
+  }
+  .owner-topbar__nav {
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    gap: 4px;
+  }
+  .owner-cards-grid {
+    grid-template-columns: 1fr;
+    padding: 0 16px 30px;
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════
+   Offer Card — مطابق لـ Flutter OfferCardWidget
+   ════════════════════════════════════════════════════════════════ */
+
+.offer-card {
+  background: var(--staff-surface);
+  border: 1px solid var(--staff-border);
+  border-radius: 20px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-shadow: 0 2px 8px rgba(59, 44, 46, 0.06);
+  transition: opacity 0.2s;
+}
+
+.offer-card--inactive {
+  opacity: 0.55;
+}
+
+/* ── Top row: icon + info + switch ── */
+.offer-card__top {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.offer-card__icon-wrap {
+  width: 44px;
+  height: 44px;
+  border-radius: 12px;
+  background: #fff8f1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  font-size: 20px;
+}
+
+.offer-card__img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.offer-card__icon-fallback {
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  width: 100%;
+  height: 100%;
+}
+
+.offer-card__info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.offer-card__name {
+  font-weight: 700;
+  font-size: 15px;
+  color: var(--staff-ink);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.offer-card__discount-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--staff-rose-dark);
+}
+
+.offer-card__badge {
+  display: inline-block;
+  font-size: 11px;
+  font-weight: 700;
+  border-radius: 8px;
+  padding: 2px 8px;
+  margin-top: 2px;
+  width: fit-content;
+}
+
+.offer-card__badge--expired {
+  background: #fce8e8;
+  color: var(--danger, #c0392b);
+}
+
+.offer-card__toggle {
+  flex-shrink: 0;
+  margin-inline-start: auto;
+}
+
+/* ── Description ── */
+.offer-card__desc {
+  font-size: 12.5px;
+  color: var(--staff-muted);
+  margin: 0;
+  line-height: 1.5;
+}
+
+/* ── Dates ── */
+.offer-card__dates {
+  font-size: 12.5px;
+  font-weight: 600;
+}
+
+/* ── Divider ── */
+.offer-card__divider {
+  height: 1px;
+  background: var(--staff-border);
+  margin: 2px 0;
+}
+
+/* ── Actions bar ── */
+.offer-card__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.offer-card__btn {
+  font-family: inherit;
+  font-size: 12px;
+  font-weight: 600;
+  border: none;
+  border-radius: 10px;
+  padding: 6px 12px;
+  cursor: pointer;
+  transition: background 0.18s, transform 0.1s;
+  white-space: nowrap;
+}
+
+.offer-card__btn:active { transform: scale(0.97); }
+
+.offer-card__btn--edit  { background: #f1ede9; color: var(--staff-ink); }
+.offer-card__btn--edit:hover  { background: #e9e2dc; }
+
+.offer-card__btn--week  { background: #e7f5ee; color: #2e7d52; }
+.offer-card__btn--week:hover  { background: #d4edde; }
+
+.offer-card__btn--month { background: #e8f0fd; color: #1a56c2; }
+.offer-card__btn--month:hover { background: #d6e4fa; }
+
+.offer-card__btn--end   { background: #fff0e8; color: #c0392b; }
+.offer-card__btn--end:hover   { background: #ffe0d0; }
+
+.offer-card__btn--delete { background: #fce8e8; color: #9b1c1c; }
+.offer-card__btn--delete:hover { background: #f8d0d0; }
+
+
+/* ════════════════════════════════════════════════════════════════
+   Owner Modal — overlay + dialog
+   ════════════════════════════════════════════════════════════════ */
+
+.owner-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(30, 20, 20, 0.4);
+  backdrop-filter: blur(4px);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.owner-modal {
+  background: #fff;
+  border-radius: 22px;
+  box-shadow: 0 8px 40px rgba(59, 44, 46, 0.18);
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  animation: modalIn 0.22s ease-out;
+}
+
+.owner-modal--wide {
+  max-width: 600px;
+}
+
+@keyframes modalIn {
+  from { opacity: 0; transform: scale(0.95) translateY(12px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.owner-modal__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 18px 20px 14px;
+  border-bottom: 1px solid var(--staff-border);
+  flex-shrink: 0;
+  direction: rtl;
+}
+
+.owner-modal__title {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--staff-ink);
+  margin: 0;
+}
+
+.owner-modal__close {
+  background: none;
+  border: none;
+  font-size: 18px;
+  color: var(--staff-muted);
+  cursor: pointer;
+  padding: 4px 8px;
+  border-radius: 8px;
+  line-height: 1;
+  transition: background 0.15s;
+}
+
+.owner-modal__close:hover { background: #f5eeea; }
+
+.owner-modal__body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  direction: rtl;
+}
+
+.owner-modal__footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  padding: 16px 20px;
+  border-top: 1px solid var(--staff-border);
+  flex-shrink: 0;
+  direction: rtl;
+}
+
+
+/* ════════════════════════════════════════════════════════════════
+   Offer Form — inside the modal
+   ════════════════════════════════════════════════════════════════ */
+
+.offer-form__section {
+  background: #fcf8f5;
+  border: 1px solid var(--staff-border);
+  border-radius: 14px;
+  padding: 16px;
+  margin-bottom: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.offer-form__section-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--staff-rose-dark);
+  margin: 0 0 4px;
+}
+
+.offer-form__dates-row {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.offer-form__clear-date {
+  font-family: inherit;
+  font-size: 11.5px;
+  color: var(--danger, #c0392b);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px 0 0;
+  text-align: start;
+}
+
+.offer-form__img-preview {
+  display: block;
+  width: 100%;
+  max-height: 140px;
+  object-fit: cover;
+  border-radius: 12px;
+  margin-top: 10px;
+  border: 1px solid var(--staff-border);
+}
+
+/* ── Form primitives (shared across modals) ── */
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.form-label {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--staff-muted);
+}
+
+.form-input {
+  font-family: inherit;
+  font-size: 14px;
+  color: var(--staff-ink);
+  background: #fff;
+  border: 1.5px solid var(--staff-border);
+  border-radius: 10px;
+  padding: 9px 12px;
+  width: 100%;
+  box-sizing: border-box;
+  outline: none;
+  transition: border-color 0.18s;
+  direction: rtl;
+}
+
+.form-input:focus {
+  border-color: var(--staff-rose);
+}
+
+.form-textarea {
+  resize: vertical;
+  min-height: 68px;
+}
+
+/* ── Upload image row ── */
+.offer-form__img-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.offer-form__upload-btn {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--staff-rose-dark);
+  background: #fff0eb;
+  border: 1.5px dashed var(--staff-rose);
+  border-radius: 10px;
+  padding: 9px 16px;
+  cursor: pointer;
+  transition: background 0.18s, border-color 0.18s;
+  flex: 1;
+}
+
+.offer-form__upload-btn:hover:not(:disabled) {
+  background: #ffe4da;
+  border-color: var(--staff-rose-dark);
+}
+
+.offer-form__upload-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.offer-form__clear-img-btn {
+  font-size: 18px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 6px;
+  border-radius: 8px;
+  line-height: 1;
+  transition: background 0.15s;
+  flex-shrink: 0;
+}
+
+.offer-form__clear-img-btn:hover:not(:disabled) { background: #fce8e8; }
+.offer-form__clear-img-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+.offer-form__preview-wrap {
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.offer-form__preview-name {
+  font-size: 11.5px;
+  color: var(--staff-muted);
+  word-break: break-all;
+}

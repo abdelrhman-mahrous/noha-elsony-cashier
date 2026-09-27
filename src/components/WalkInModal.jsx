@@ -73,7 +73,7 @@ export default function WalkInModal({ onClose, onSuccess }) {
 
   // ─── Target Map for Active Offer ───────────────────────────────────────────
   const offerTargetsMap = useMemo(() => {
-    if (!selectedOffer) return { itemIds: new Set(), groupIds: new Set(), catIds: new Set() }
+    if (!selectedOffer) return { itemIds: new Set(), groupIds: new Set(), catIds: new Set(), isGeneral: true }
     const targets = selectedOffer.service_offer_targets || []
     const itemIds = new Set()
     const groupIds = new Set()
@@ -84,39 +84,100 @@ export default function WalkInModal({ onClose, onSuccess }) {
       if (t.target_type === 'group') groupIds.add(t.target_id)
       if (t.target_type === 'category') catIds.add(t.target_id)
     })
-    return { itemIds, groupIds, catIds }
+    const isGeneral = (itemIds.size === 0 && groupIds.size === 0 && catIds.size === 0)
+    return { itemIds, groupIds, catIds, isGeneral }
   }, [selectedOffer])
 
   // Helper: check if service item is covered by current offer
   function isItemCoveredByOffer(item, groupId, catId) {
     if (!selectedOffer) return false
-    const { itemIds, groupIds, catIds } = offerTargetsMap
-    if (itemIds.size === 0 && groupIds.size === 0 && catIds.size === 0) {
-      // General offer on all services
-      return true
-    }
+    const { itemIds, groupIds, catIds, isGeneral } = offerTargetsMap
+    if (isGeneral) return true
     return itemIds.has(item.id) || groupIds.has(groupId) || catIds.has(catId)
   }
 
-  // Calculate discounted item price
-  function getItemDiscountedPrice(item, groupId, catId) {
-    const origPrice = item.price || 0
-    if (!selectedOffer || origPrice === 0) return origPrice
-    if (!isItemCoveredByOffer(item, groupId, catId)) return origPrice
-
-    const val = Number(selectedOffer.discount_value) || 0
-    const type = selectedOffer.discount_type || 'percentage'
-
-    if (type === 'percentage') {
-      return Math.max(0, origPrice - (origPrice * val / 100))
+  // ─── خوارزمية توزيع أسعار العرض بدقة (بما فيها السعر الشامل fixed_package) ───
+  function recalculateServicesPrices(servicesMap, offer) {
+    if (!offer || Object.keys(servicesMap).length === 0) {
+      const result = {}
+      for (const [id, item] of Object.entries(servicesMap)) {
+        result[id] = { ...item, unitPrice: item.price || 0, isCovered: false }
+      }
+      return result
     }
-    if (type === 'fixed') {
-      return Math.max(0, origPrice - val)
+
+    const targets = offer.service_offer_targets || []
+    const itemIds = new Set(targets.filter(t => t.target_type === 'item').map(t => t.target_id))
+    const groupIds = new Set(targets.filter(t => t.target_type === 'group').map(t => t.target_id))
+    const catIds = new Set(targets.filter(t => t.target_type === 'category').map(t => t.target_id))
+    const isGeneral = (itemIds.size === 0 && groupIds.size === 0 && catIds.size === 0)
+
+    const coveredItems = []
+    const nonCoveredItems = []
+
+    for (const [id, item] of Object.entries(servicesMap)) {
+      const isCovered = isGeneral || itemIds.has(item.id) || groupIds.has(item.groupId) || catIds.has(item.catId)
+      if (isCovered && (item.price || 0) > 0) {
+        coveredItems.push(item)
+      } else {
+        nonCoveredItems.push(item)
+      }
     }
+
+    const val = Number(offer.discount_value) || 0
+    const type = offer.discount_type || 'percentage'
+    const result = {}
+
+    // الخدمات غير المشمولة في العرض تظل بسعرها الأصلي
+    for (const item of nonCoveredItems) {
+      result[item.id] = { ...item, unitPrice: item.price || 0, isCovered: false }
+    }
+
+    if (coveredItems.length === 0) {
+      return result
+    }
+
+    const coveredOriginalSum = coveredItems.reduce((s, i) => s + (i.price || 0), 0)
+
     if (type === 'fixed_package') {
-      return Math.min(origPrice, val)
+      // 👑 السعر الشامل: إجمالي الخدمات المشمولة في العرض يساوي بالضبط قيمة العرض (مثلاً 1000 جنيه)
+      const targetPackagePrice = Math.min(coveredOriginalSum, val)
+      let allocatedSum = 0
+
+      coveredItems.forEach((item, idx) => {
+        let price = 0
+        if (idx === coveredItems.length - 1) {
+          price = Math.max(0, targetPackagePrice - allocatedSum)
+        } else {
+          price = Math.round((item.price / coveredOriginalSum) * targetPackagePrice)
+          allocatedSum += price
+        }
+        result[item.id] = { ...item, unitPrice: price, isCovered: true }
+      })
+    } else if (type === 'fixed') {
+      // خصم مبلغ ثابت من الإجمالي
+      const targetDiscount = Math.min(coveredOriginalSum, val)
+      let allocatedDiscount = 0
+
+      coveredItems.forEach((item, idx) => {
+        let disc = 0
+        if (idx === coveredItems.length - 1) {
+          disc = Math.max(0, targetDiscount - allocatedDiscount)
+        } else {
+          disc = Math.round((item.price / coveredOriginalSum) * targetDiscount)
+          allocatedDiscount += disc
+        }
+        result[item.id] = { ...item, unitPrice: Math.max(0, (item.price || 0) - disc), isCovered: true }
+      })
+    } else {
+      // خصم نسبة مئوية
+      coveredItems.forEach(item => {
+        const discPrice = Math.max(0, Math.round((item.price || 0) - ((item.price || 0) * val / 100)))
+        result[item.id] = { ...item, unitPrice: discPrice, isCovered: true }
+      })
     }
-    return origPrice
+
+    return result
   }
 
   // ─── Selection Handlers ───────────────────────────────────────────────────
@@ -127,17 +188,16 @@ export default function WalkInModal({ onClose, onSuccess }) {
       if (next[item.id]) {
         delete next[item.id]
       } else {
-        const unitPrice = getItemDiscountedPrice(item, groupId, catId)
         next[item.id] = {
           ...item,
           groupId,
           catId,
           originalUnitPrice: item.price || 0,
-          unitPrice,
+          unitPrice: item.price || 0,
           quantity: 1,
         }
       }
-      return next
+      return recalculateServicesPrices(next, selectedOffer)
     })
   }
 
@@ -169,7 +229,7 @@ export default function WalkInModal({ onClose, onSuccess }) {
     })
   }
 
-  // Re-calculate prices and auto-select covered services when offer changes
+  // تفعيل / إلغاء تفعيل العرض واختيار الخدمات التابعة له تلقائياً
   function handleSelectOffer(offer) {
     const isDeselecting = selectedOffer?.id === offer.id
     const newOffer = isDeselecting ? null : offer
@@ -195,20 +255,12 @@ export default function WalkInModal({ onClose, onSuccess }) {
 
             if (!isGeneral && isCovered) {
               if (!firstCatId) firstCatId = cat.id
-              let unitPrice = item.price || 0
-              if (item.price > 0) {
-                const val = Number(newOffer.discount_value) || 0
-                const type = newOffer.discount_type || 'percentage'
-                if (type === 'percentage') unitPrice = Math.max(0, item.price - (item.price * val / 100))
-                else if (type === 'fixed') unitPrice = Math.max(0, item.price - val)
-                else if (type === 'fixed_package') unitPrice = Math.min(item.price, val)
-              }
               autoSelected[item.id] = {
                 ...item,
                 groupId: group.id,
                 catId: cat.id,
                 originalUnitPrice: item.price || 0,
-                unitPrice,
+                unitPrice: item.price || 0,
                 quantity: 1,
               }
             }
@@ -222,19 +274,7 @@ export default function WalkInModal({ onClose, onSuccess }) {
 
       setSelectedServices(prev => {
         const next = { ...autoSelected, ...prev }
-        for (const [id, item] of Object.entries(next)) {
-          const isCovered = isGeneral || itemIds.has(item.id) || groupIds.has(item.groupId) || catIds.has(item.catId)
-          let unitPrice = item.price || 0
-          if (isCovered && item.price > 0) {
-            const val = Number(newOffer.discount_value) || 0
-            const type = newOffer.discount_type || 'percentage'
-            if (type === 'percentage') unitPrice = Math.max(0, item.price - (item.price * val / 100))
-            else if (type === 'fixed') unitPrice = Math.max(0, item.price - val)
-            else if (type === 'fixed_package') unitPrice = Math.min(item.price, val)
-          }
-          next[id] = { ...item, unitPrice }
-        }
-        return next
+        return recalculateServicesPrices(next, newOffer)
       })
 
       showToast(`تم تفعيل العرض: ${newOffer.title_ar || newOffer.title}`, 'success')

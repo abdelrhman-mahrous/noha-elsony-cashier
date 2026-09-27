@@ -580,6 +580,13 @@ export async function createWalkInAppointment({
 
   if (!userId) {
     try {
+      const { data: u } = await supabase.from('users').select('id').limit(1).maybeSingle()
+      if (u?.id) userId = u.id
+    } catch (_) {}
+  }
+
+  if (!userId) {
+    try {
       const { data: sample } = await supabase
         .from('appointments')
         .select('user_id')

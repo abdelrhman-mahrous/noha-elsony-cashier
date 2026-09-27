@@ -380,3 +380,121 @@
 .mkt-btn-secondary:hover {
   background: #f5deea;
 }
+
+/* ── النوافذ المنبثقة (Modals & Overlays) ── */
+.mkt-shell .modal-overlay,
+.mkt-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(35, 18, 25, 0.58) !important;
+  backdrop-filter: blur(8px) !important;
+  -webkit-backdrop-filter: blur(8px) !important;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  animation: fadeIn 0.2s ease;
+}
+
+.mkt-shell .modal,
+.mkt-shell .modal-card,
+.mkt-modal {
+  background: #FFFFFF !important;
+  color: var(--mkt-ink) !important;
+  border-radius: 22px !important;
+  width: 100%;
+  max-width: 780px;
+  padding: 24px !important;
+  box-shadow: 0 20px 60px rgba(44, 24, 32, 0.25) !important;
+  border: 1px solid var(--mkt-border) !important;
+  font-family: 'Cairo', system-ui, -apple-system, sans-serif !important;
+}
+
+.mkt-shell .modal-header,
+.mkt-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1.5px solid var(--mkt-border);
+}
+
+.mkt-shell .modal-title,
+.mkt-modal-title {
+  font-size: 19px !important;
+  font-weight: 800 !important;
+  color: var(--mkt-ink) !important;
+  margin: 0;
+}
+
+.mkt-shell .modal-close-btn,
+.mkt-modal-close-btn {
+  background: #FBEFF4 !important;
+  border: none !important;
+  color: var(--mkt-primary) !important;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  cursor: pointer;
+  font-size: 16px;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.mkt-shell .modal-close-btn:hover,
+.mkt-modal-close-btn:hover {
+  background: var(--mkt-primary) !important;
+  color: #ffffff !important;
+}
+
+/* ── المدخلات والحقول في لوحة التسويق ── */
+.mkt-shell .input,
+.mkt-shell input[type="text"],
+.mkt-shell input[type="number"],
+.mkt-shell input[type="date"],
+.mkt-shell input[type="email"],
+.mkt-shell input[type="password"],
+.mkt-shell textarea,
+.mkt-shell select {
+  background: #FFFFFF !important;
+  color: var(--mkt-ink) !important;
+  border: 1.5px solid #E5D5DE !important;
+  border-radius: 12px !important;
+  padding: 11px 14px !important;
+  font-family: 'Cairo', sans-serif !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+  outline: none !important;
+  width: 100%;
+  box-sizing: border-box;
+  transition: all 0.2s ease;
+}
+
+.mkt-shell .input:focus,
+.mkt-shell input:focus,
+.mkt-shell textarea:focus,
+.mkt-shell select:focus {
+  border-color: var(--mkt-primary) !important;
+  box-shadow: 0 0 0 3px rgba(142, 58, 89, 0.12) !important;
+  background: #FFFFFF !important;
+}
+
+.mkt-shell .input::placeholder,
+.mkt-shell input::placeholder,
+.mkt-shell textarea::placeholder {
+  color: #A08C95 !important;
+  font-weight: 400 !important;
+}
+
+.mkt-shell .form-label {
+  display: block;
+  font-size: 13.5px !important;
+  font-weight: 700 !important;
+  color: var(--mkt-ink) !important;
+  margin-bottom: 6px;
+}

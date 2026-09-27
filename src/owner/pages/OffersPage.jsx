@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import {
   getAllOffers,
+  getOfferSelectionData,
   createOffer,
   updateOffer,
   updateOfferStatusAndDuration,
@@ -43,16 +44,23 @@ const EMPTY_FORM = {
 
 // ─── OfferFormModal ──────────────────────────────────────────────────────────
 
-function OfferFormModal({ offer, onSave, onClose, saving }) {
+function OfferFormModal({ offer, selectionData, onSave, onClose, saving }) {
   const fileInputRef = useRef(null)
-  const [localFile, setLocalFile] = useState(null)      // File object اللي اختاره المستخدم
-  const [localPreview, setLocalPreview] = useState(null) // ObjectURL للـ preview
+  const [localFile, setLocalFile] = useState(null)
+  const [localPreview, setLocalPreview] = useState(null)
   const [uploading, setUploading] = useState(false)
+  const [expandedSections, setExpandedSections] = useState({
+    services: true,
+    products: true,
+    bundles: false,
+  })
+  const [openCats, setOpenCats] = useState({})
+  const [openGroups, setOpenGroups] = useState({})
+  const [customDiscountDialog, setCustomDiscountDialog] = useState(null)
 
   const [form, setForm] = useState(() => {
     if (!offer) return EMPTY_FORM
-    const toInput = (iso) =>
-      iso ? new Date(iso).toISOString().split('T')[0] : ''
+    const toInput = (iso) => (iso ? new Date(iso).toISOString().split('T')[0] : '')
     return {
       title_ar: offer.title_ar || '',
       description_ar: offer.description_ar || '',
@@ -65,13 +73,25 @@ function OfferFormModal({ offer, onSave, onClose, saving }) {
     }
   })
 
-  // تنظيف ObjectURL عند الغلق
+  // Map of targets: key = `${target_type}:${target_id}` => { target_type, target_id, discount_type, discount_value }
+  const [customTargets, setCustomTargets] = useState(() => {
+    const map = {}
+    if (offer && Array.isArray(offer.service_offer_targets)) {
+      for (const t of offer.service_offer_targets) {
+        map[`${t.target_type}:${t.target_id}`] = { ...t }
+      }
+    }
+    return map
+  })
+
   useEffect(() => {
-    return () => { if (localPreview) URL.revokeObjectURL(localPreview) }
+    return () => {
+      if (localPreview) URL.revokeObjectURL(localPreview)
+    }
   }, [localPreview])
 
   function set(k, v) {
-    setForm(prev => ({ ...prev, [k]: v }))
+    setForm((prev) => ({ ...prev, [k]: v }))
   }
 
   function handleFileChange(e) {
@@ -80,7 +100,6 @@ function OfferFormModal({ offer, onSave, onClose, saving }) {
     if (localPreview) URL.revokeObjectURL(localPreview)
     setLocalFile(file)
     setLocalPreview(URL.createObjectURL(file))
-    // امسح رابط الـ URL لو اختار ملف
     set('image_url', '')
   }
 
@@ -92,351 +111,643 @@ function OfferFormModal({ offer, onSave, onClose, saving }) {
     if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
+  function toggleTarget(targetType, targetId) {
+    const key = `${targetType}:${targetId}`
+    setCustomTargets((prev) => {
+      const next = { ...prev }
+      if (next[key]) {
+        delete next[key]
+      } else {
+        next[key] = { target_type: targetType, target_id: targetId, discount_type: null, discount_value: null }
+      }
+      return next
+    })
+  }
+
+  function saveCustomDiscount(targetKey, discountType, discountValue) {
+    setCustomTargets((prev) => {
+      const current = prev[targetKey]
+      if (!current) return prev
+      const val = discountValue !== '' && Number(discountValue) > 0 ? Number(discountValue) : null
+      return {
+        ...prev,
+        [targetKey]: {
+          ...current,
+          discount_type: val ? discountType : null,
+          discount_value: val,
+        },
+      }
+    })
+    setCustomDiscountDialog(null)
+  }
+
   async function handleSubmit(e) {
     e.preventDefault()
 
-    // لو في ملف محلي، ارفعه أولاً وخد الـ URL
+    const targetsArray = Object.values(customTargets)
+
+    let finalImageUrl = form.image_url
     if (localFile) {
       setUploading(true)
       try {
-        const url = await uploadOfferImage(localFile)
-        onSave({ ...form, image_url: url })
-      } catch (err) {
-        // أعد الـ error للـ parent عبر onSave مع علم الخطأ
-        onSave({ ...form, _uploadError: err.message })
+        finalImageUrl = await uploadOfferImage(localFile)
       } finally {
         setUploading(false)
       }
-    } else {
-      onSave(form)
     }
+
+    await onSave({
+      ...form,
+      image_url: finalImageUrl,
+      discount_value: form.discount_value !== '' ? Number(form.discount_value) : 0,
+      sort_order: Number(form.sort_order) || 0,
+      start_date: form.start_date ? new Date(form.start_date).toISOString() : null,
+      valid_until: form.valid_until ? new Date(form.valid_until).toISOString() : null,
+      targets: targetsArray,
+    })
   }
 
   const isBusy = saving || uploading
-  const previewSrc = localPreview || (form.image_url || null)
+  const displayImage = localPreview || form.image_url
+  const { tree = [], products = [], bundles = [] } = selectionData || {}
 
   return (
-    <div className="owner-modal-overlay" onClick={onClose}>
+    <div className="modal-overlay" onClick={onClose}>
       <div
-        className="owner-modal owner-modal--wide"
-        onClick={e => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        dir="rtl"
+        className="modal"
+        style={{ maxWidth: '780px', width: '100%', maxHeight: '92vh', overflowY: 'auto', padding: '24px' }}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div className="owner-modal__header">
-          <h2 className="owner-modal__title">
-            {offer ? 'تعديل العرض' : 'إنشاء عرض خصم جديد'}
-          </h2>
-          <button
-            className="owner-modal__close"
-            onClick={onClose}
-            aria-label="إغلاق"
-          >
+        <div className="modal-header">
+          <h2 className="modal-title">{offer ? '✏️ تعديل العرض الترويجي' : '🏷️ إضافة عرض ترويجي جديد'}</h2>
+          <button className="modal-close-btn" onClick={onClose} disabled={isBusy}>
             ✕
           </button>
         </div>
 
-        <form onSubmit={handleSubmit} className="owner-modal__body">
-          {/* ─ Section 1: البيانات الأساسية ─ */}
-          <div className="offer-form__section">
-            <p className="offer-form__section-title">١. البيانات الأساسية للعرض</p>
+        <form onSubmit={handleSubmit}>
+          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+            {/* 1. البيانات الأساسية */}
+            <div style={{ background: 'var(--staff-bg)', padding: '16px', borderRadius: '12px', border: '1px solid var(--staff-border)' }}>
+              <div style={{ fontWeight: '800', color: 'var(--staff-ink)', marginBottom: '12px', fontSize: '15px' }}>
+                1. البيانات الأساسية للعرض وصورته
+              </div>
 
-            <div className="form-group">
-              <label className="form-label">عنوان العرض (عربي) *</label>
-              <input
-                className="form-input"
-                type="text"
-                placeholder="مثال: عرض الصيف المميز"
-                value={form.title_ar}
-                onChange={e => set('title_ar', e.target.value)}
-                required
-              />
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">وصف العرض</label>
-              <textarea
-                className="form-input form-textarea"
-                placeholder="تفاصيل العرض والمميزات"
-                value={form.description_ar}
-                onChange={e => set('description_ar', e.target.value)}
-                rows={2}
-              />
-            </div>
-
-            {/* ── صورة العرض ── */}
-            <div className="form-group">
-              <label className="form-label">صورة العرض</label>
-
-              {/* زر الرفع من الجهاز */}
-              <div className="offer-form__img-row">
-                <button
-                  type="button"
-                  className="offer-form__upload-btn"
-                  onClick={() => fileInputRef.current?.click()}
+              <div className="form-group" style={{ marginBottom: '12px' }}>
+                <label className="form-label">
+                  عنوان العرض (عربي) <span style={{ color: 'var(--danger)' }}>*</span>
+                </label>
+                <input
+                  className="input"
+                  type="text"
+                  value={form.title_ar}
+                  onChange={(e) => set('title_ar', e.target.value)}
+                  placeholder="مثال: باقة العناية الشاملة الملكية أو خصم على منتجات العناية"
+                  required
                   disabled={isBusy}
-                >
-                  📁 {localFile ? 'تغيير الصورة' : 'رفع من الجهاز'}
-                </button>
+                />
+              </div>
 
-                {previewSrc && (
+              <div className="form-group" style={{ marginBottom: '12px' }}>
+                <label className="form-label">وصف العرض وتفاصيله</label>
+                <textarea
+                  className="input"
+                  rows={2}
+                  value={form.description_ar}
+                  onChange={(e) => set('description_ar', e.target.value)}
+                  placeholder="تفاصيل العرض والمميزات والشروط إن وجدت..."
+                  disabled={isBusy}
+                />
+              </div>
+
+              <div className="form-group">
+                <label className="form-label">صورة العرض</label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  style={{ display: 'none' }}
+                  disabled={isBusy}
+                />
+
+                <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
                   <button
                     type="button"
-                    className="offer-form__clear-img-btn"
-                    onClick={clearImage}
+                    className="btn btn--secondary"
+                    onClick={() => fileInputRef.current?.click()}
                     disabled={isBusy}
-                    title="إزالة الصورة"
                   >
-                    🗑️
+                    📁 اختيار صورة من الجهاز
                   </button>
+                  {displayImage && (
+                    <button
+                      type="button"
+                      className="btn btn--danger btn--sm"
+                      onClick={clearImage}
+                      disabled={isBusy}
+                    >
+                      إزالة الصورة
+                    </button>
+                  )}
+                </div>
+
+                {displayImage && (
+                  <div style={{ marginTop: '10px', textAlign: 'center' }}>
+                    <img
+                      src={displayImage}
+                      alt="معاينة"
+                      style={{
+                        maxHeight: '130px',
+                        maxWidth: '100%',
+                        borderRadius: '8px',
+                        objectFit: 'cover',
+                        border: '1px solid var(--staff-border)',
+                      }}
+                    />
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 2. نوع وقيمة الخصم العام */}
+            <div style={{ background: 'var(--staff-bg)', padding: '16px', borderRadius: '12px', border: '1px solid var(--staff-border)' }}>
+              <div style={{ fontWeight: '800', color: 'var(--staff-ink)', marginBottom: '4px', fontSize: '15px' }}>
+                2. نوع وقيمة الخصم العام
+              </div>
+              <p style={{ fontSize: '12.5px', color: 'var(--staff-muted)', margin: '0 0 12px' }}>
+                يتم تطبيق هذا الخصم على أي منتج أو خدمة مستهدفة لم يُحدد لها خصم مخصص.
+              </p>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '12px' }}>
+                <div className="form-group">
+                  <label className="form-label">نوع العرض / الخصم</label>
+                  <select
+                    className="input"
+                    value={form.discount_type}
+                    onChange={(e) => set('discount_type', e.target.value)}
+                    disabled={isBusy}
+                  >
+                    <option value="percentage">نسبة مئوية (%)</option>
+                    <option value="fixed">خصم مبلغ ثابت (جنيه)</option>
+                    <option value="fixed_package">سعر شامل ثابت للباقة (جنيه)</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">
+                    {form.discount_type === 'fixed_package' ? 'السعر الشامل للباقة *' : 'قيمة الخصم العام *'}
+                  </label>
+                  <input
+                    className="input"
+                    type="number"
+                    min="0"
+                    step="any"
+                    value={form.discount_value}
+                    onChange={(e) => set('discount_value', e.target.value)}
+                    placeholder={form.discount_type === 'percentage' ? 'مثال: 20' : 'مثال: 150'}
+                    required
+                    disabled={isBusy}
+                  />
+                </div>
+              </div>
+
+              {form.discount_type === 'fixed_package' && (
+                <div style={{ marginTop: '10px', background: '#F5E6EC', padding: '10px 12px', borderRadius: '8px', fontSize: '12px', color: 'var(--staff-rose-dark)', fontWeight: 'bold' }}>
+                  ℹ️ عند اختيار باقة بسعر شامل، ستباع جميع الخدمات والمنتجات المختارة أدناه معاً بهذا السعر الثابت.
+                </div>
+              )}
+            </div>
+
+            {/* 3. فترة الصلاحية والترتيب */}
+            <div style={{ background: 'var(--staff-bg)', padding: '16px', borderRadius: '12px', border: '1px solid var(--staff-border)' }}>
+              <div style={{ fontWeight: '800', color: 'var(--staff-ink)', marginBottom: '12px', fontSize: '15px' }}>
+                3. فترة الصلاحية والترتيب
+              </div>
+
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '12px' }}>
+                <div className="form-group">
+                  <label className="form-label">تاريخ البدء (اختياري)</label>
+                  <input
+                    className="input"
+                    type="date"
+                    value={form.start_date}
+                    onChange={(e) => set('start_date', e.target.value)}
+                    disabled={isBusy}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">تاريخ الانتهاء (اختياري)</label>
+                  <input
+                    className="input"
+                    type="date"
+                    value={form.valid_until}
+                    onChange={(e) => set('valid_until', e.target.value)}
+                    disabled={isBusy}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">الترتيب في التطبيق</label>
+                  <input
+                    className="input"
+                    type="number"
+                    min="0"
+                    value={form.sort_order}
+                    onChange={(e) => set('sort_order', e.target.value)}
+                    placeholder="0"
+                    disabled={isBusy}
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* 4. المنتجات والخدمات المستهدفة بالعرض */}
+            <div style={{ background: '#FFFFFF', padding: '16px', borderRadius: '12px', border: '1.5px solid var(--staff-border)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                <div style={{ fontWeight: '800', color: 'var(--staff-ink)', fontSize: '15px' }}>
+                  4. المنتجات والخدمات المستهدفة بالعرض ({Object.keys(customTargets).length} محددة)
+                </div>
+              </div>
+              <p style={{ fontSize: '12.5px', color: 'var(--staff-muted)', margin: '0 0 14px' }}>
+                حددي المنتجات أو الخدمات المشمولة بالعرض. يمكنك الضغط على أيقونة القلم ✏️ لتحديد خصم مخصص لأي منتج أو خدمة بعينها.
+              </p>
+
+              {/* ── أ) قسم المنتجات ── */}
+              <div style={{ border: '1px solid var(--staff-border)', borderRadius: '10px', marginBottom: '12px', overflow: 'hidden' }}>
+                <div
+                  onClick={() => setExpandedSections((prev) => ({ ...prev, products: !prev.products }))}
+                  style={{
+                    background: 'var(--staff-bg)',
+                    padding: '12px 14px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    fontSize: '14px',
+                  }}
+                >
+                  <span>🛍️ منتجات الصالون ({products.length} منتج متاح)</span>
+                  <span>{expandedSections.products ? '▲' : '▼'}</span>
+                </div>
+
+                {expandedSections.products && (
+                  <div style={{ padding: '12px', maxHeight: '240px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                    {products.length === 0 ? (
+                      <div style={{ fontSize: '13px', color: 'var(--staff-muted)' }}>لا توجد منتجات مسجلة</div>
+                    ) : (
+                      products.map((p) => {
+                        const key = `product:${p.id}`
+                        const isSelected = !!customTargets[key]
+                        const custom = customTargets[key]
+                        const hasCustom = custom && custom.discount_value > 0
+
+                        return (
+                          <div
+                            key={p.id}
+                            style={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              padding: '8px 10px',
+                              borderRadius: '8px',
+                              background: isSelected ? '#FAF0F4' : '#fff',
+                              border: isSelected ? '1px solid var(--staff-rose)' : '1px solid var(--staff-border)',
+                            }}
+                          >
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', flex: 1, margin: 0 }}>
+                              <input
+                                type="checkbox"
+                                checked={isSelected}
+                                onChange={() => toggleTarget('product', p.id)}
+                              />
+                              <div>
+                                <span style={{ fontWeight: '600', fontSize: '13.5px', color: 'var(--staff-ink)' }}>{p.name}</span>
+                                {p.price && <span style={{ fontSize: '12px', color: 'var(--staff-muted)', marginRight: '6px' }}>({p.price} ج)</span>}
+                              </div>
+                            </label>
+
+                            {isSelected && (
+                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                <span style={{ fontSize: '11.5px', color: hasCustom ? 'var(--staff-rose-dark)' : 'var(--staff-muted)', fontWeight: hasCustom ? 'bold' : 'normal' }}>
+                                  {hasCustom ? `خصم: ${custom.discount_value} ${custom.discount_type === 'fixed' ? 'جنيه' : '%'}` : 'خصم عام'}
+                                </span>
+                                <button
+                                  type="button"
+                                  className="btn btn--sm btn--secondary"
+                                  style={{ padding: '2px 8px', fontSize: '11px' }}
+                                  title="تخصيص الخصم لهذا المنتج"
+                                  onClick={() => setCustomDiscountDialog({ key, name: p.name, current: custom })}
+                                >
+                                  ✏️
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })
+                    )}
+                  </div>
                 )}
               </div>
 
-              {/* hidden file input */}
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                style={{ display: 'none' }}
-                onChange={handleFileChange}
-              />
+              {/* ── ب) قسم الخدمات والأقسام ── */}
+              <div style={{ border: '1px solid var(--staff-border)', borderRadius: '10px', marginBottom: '12px', overflow: 'hidden' }}>
+                <div
+                  onClick={() => setExpandedSections((prev) => ({ ...prev, services: !prev.services }))}
+                  style={{
+                    background: 'var(--staff-bg)',
+                    padding: '12px 14px',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    cursor: 'pointer',
+                    fontWeight: 'bold',
+                    fontSize: '14px',
+                  }}
+                >
+                  <span>✂️ أقسام وخدمات الصالون ({tree.length} قسم)</span>
+                  <span>{expandedSections.services ? '▲' : '▼'}</span>
+                </div>
 
-              {/* أو رابط URL يدوي (لو مفيش ملف محلي) */}
-              {!localFile && (
-                <input
-                  className="form-input"
-                  type="url"
-                  placeholder="أو أدخل رابط URL للصورة مباشرة"
-                  value={form.image_url}
-                  onChange={e => set('image_url', e.target.value)}
-                  style={{ marginTop: '8px' }}
-                />
-              )}
+                {expandedSections.services && (
+                  <div style={{ padding: '12px', maxHeight: '320px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {tree.map((cat) => {
+                      const catKey = `category:${cat.id}`
+                      const isCatSelected = !!customTargets[catKey]
+                      const isCatOpen = !!openCats[cat.id]
 
-              {/* preview */}
-              {previewSrc && (
-                <div className="offer-form__preview-wrap">
-                  <img
-                    src={previewSrc}
-                    alt="preview"
-                    className="offer-form__img-preview"
-                    onError={e => { e.currentTarget.style.display = 'none' }}
-                  />
-                  {localFile && (
-                    <span className="offer-form__preview-name">
-                      📎 {localFile.name}
-                    </span>
+                      return (
+                        <div key={cat.id} style={{ border: '1px solid var(--staff-border)', borderRadius: '8px', overflow: 'hidden' }}>
+                          <div
+                            style={{
+                              background: '#FDF7E7',
+                              padding: '8px 12px',
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                            }}
+                          >
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                              <input
+                                type="checkbox"
+                                checked={isCatSelected}
+                                onChange={() => toggleTarget('category', cat.id)}
+                              />
+                              <span style={{ fontWeight: 'bold', fontSize: '13.5px' }}>قسم: {cat.name_ar}</span>
+                            </label>
+                            <button
+                              type="button"
+                              onClick={() => setOpenCats((prev) => ({ ...prev, [cat.id]: !prev[cat.id] }))}
+                              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px' }}
+                            >
+                              {isCatOpen ? '▲ إخفاء الخدمات' : '▼ عرض الخدمات'}
+                            </button>
+                          </div>
+
+                          {isCatOpen && (
+                            <div style={{ padding: '8px 12px', background: '#fff' }}>
+                              {(cat.groups || []).map((grp) => {
+                                const grpKey = `group:${grp.id}`
+                                const isGrpSelected = !!customTargets[grpKey]
+                                const isGrpOpen = !!openGroups[grp.id]
+
+                                return (
+                                  <div key={grp.id} style={{ marginBottom: '6px', borderRight: '2px solid var(--staff-rose)', paddingRight: '8px' }}>
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}>
+                                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
+                                        <input
+                                          type="checkbox"
+                                          checked={isGrpSelected}
+                                          onChange={() => toggleTarget('group', grp.id)}
+                                        />
+                                        <span style={{ fontWeight: '600', fontSize: '13px' }}>مجموعة: {grp.name_ar}</span>
+                                      </label>
+                                      <button
+                                        type="button"
+                                        onClick={() => setOpenGroups((prev) => ({ ...prev, [grp.id]: !prev[grp.id] }))}
+                                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: 'var(--staff-muted)' }}
+                                      >
+                                        {isGrpOpen ? '▲' : '▼'}
+                                      </button>
+                                    </div>
+
+                                    {isGrpOpen && (
+                                      <div style={{ paddingRight: '14px', display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
+                                        {(grp.items || []).map((item) => {
+                                          const itemKey = `item:${item.id}`
+                                          const isItemSelected = !!customTargets[itemKey]
+                                          const itemCustom = customTargets[itemKey]
+                                          const hasCustom = itemCustom && itemCustom.discount_value > 0
+
+                                          return (
+                                            <div
+                                              key={item.id}
+                                              style={{
+                                                display: 'flex',
+                                                alignItems: 'center',
+                                                justifyContent: 'space-between',
+                                                padding: '4px 6px',
+                                                borderRadius: '6px',
+                                                background: isItemSelected ? '#FAF0F4' : 'var(--staff-bg)',
+                                              }}
+                                            >
+                                              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
+                                                <input
+                                                  type="checkbox"
+                                                  checked={isItemSelected}
+                                                  onChange={() => toggleTarget('item', item.id)}
+                                                />
+                                                <span style={{ fontSize: '12.5px' }}>{item.name_ar} ({item.price || item.min_price || 0} ج)</span>
+                                              </label>
+                                              {isItemSelected && (
+                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                                                  <span style={{ fontSize: '11px', color: hasCustom ? 'var(--staff-rose-dark)' : 'var(--staff-muted)', fontWeight: hasCustom ? 'bold' : 'normal' }}>
+                                                    {hasCustom ? `خصم: ${itemCustom.discount_value} ${itemCustom.discount_type === 'fixed' ? 'جنيه' : '%'}` : 'خصم عام'}
+                                                  </span>
+                                                  <button
+                                                    type="button"
+                                                    className="btn btn--sm btn--secondary"
+                                                    style={{ padding: '1px 6px', fontSize: '10px' }}
+                                                    onClick={() => setCustomDiscountDialog({ key: itemKey, name: item.name_ar, current: itemCustom })}
+                                                  >
+                                                    ✏️
+                                                  </button>
+                                                </div>
+                                              )}
+                                            </div>
+                                          )
+                                        })}
+                                      </div>
+                                    )}
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* ── ج) قسم الباقات (Bundles) ── */}
+              {bundles.length > 0 && (
+                <div style={{ border: '1px solid var(--staff-border)', borderRadius: '10px', overflow: 'hidden' }}>
+                  <div
+                    onClick={() => setExpandedSections((prev) => ({ ...prev, bundles: !prev.bundles }))}
+                    style={{
+                      background: 'var(--staff-bg)',
+                      padding: '12px 14px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      fontSize: '14px',
+                    }}
+                  >
+                    <span>🎁 باقات المنتجات ({bundles.length} باقة)</span>
+                    <span>{expandedSections.bundles ? '▲' : '▼'}</span>
+                  </div>
+
+                  {expandedSections.bundles && (
+                    <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                      {bundles.map((b) => {
+                        const key = `bundle:${b.id}`
+                        const isSelected = !!customTargets[key]
+                        return (
+                          <label key={b.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={() => toggleTarget('bundle', b.id)}
+                            />
+                            <span style={{ fontSize: '13px' }}>{b.name}</span>
+                          </label>
+                        )
+                      })}
+                    </div>
                   )}
                 </div>
               )}
             </div>
           </div>
 
-          {/* ─ Section 2: الخصم ─ */}
-          <div className="offer-form__section">
-            <p className="offer-form__section-title">٢. قيمة ونوع الخصم</p>
-
-            <div className="form-group">
-              <label className="form-label">نوع الخصم</label>
-              <select
-                className="form-input"
-                value={form.discount_type}
-                onChange={e => set('discount_type', e.target.value)}
-              >
-                <option value="percentage">نسبة مئوية %</option>
-                <option value="fixed">مبلغ ثابت (جنيه)</option>
-                <option value="fixed_package">سعر شامل (جنيه)</option>
-              </select>
-            </div>
-
-            <div className="form-group">
-              <label className="form-label">قيمة الخصم *</label>
-              <input
-                className="form-input"
-                type="number"
-                min="0"
-                step="0.01"
-                placeholder="مثال: 20 أو 15"
-                value={form.discount_value}
-                onChange={e => set('discount_value', e.target.value)}
-                required
-              />
-            </div>
-          </div>
-
-          {/* ─ Section 3: المدة ─ */}
-          <div className="offer-form__section">
-            <p className="offer-form__section-title">٣. تاريخ البداية والانتهاء</p>
-
-            <div className="offer-form__dates-row">
-              <div className="form-group" style={{ flex: 1 }}>
-                <label className="form-label">تاريخ البداية</label>
-                <input
-                  className="form-input"
-                  type="date"
-                  value={form.start_date}
-                  onChange={e => set('start_date', e.target.value)}
-                />
-              </div>
-              <div className="form-group" style={{ flex: 1 }}>
-                <label className="form-label">تاريخ الانتهاء</label>
-                <input
-                  className="form-input"
-                  type="date"
-                  value={form.valid_until}
-                  onChange={e => set('valid_until', e.target.value)}
-                />
-                {form.valid_until && (
-                  <button
-                    type="button"
-                    className="offer-form__clear-date"
-                    onClick={() => set('valid_until', '')}
-                  >
-                    ✕ إلغاء تاريخ الانتهاء (مفتوح)
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-
-          {/* ─ Section 4: ترتيب ─ */}
-          <div className="offer-form__section">
-            <p className="offer-form__section-title">٤. ترتيب العرض</p>
-            <div className="form-group">
-              <label className="form-label">الترتيب (رقم أصغر = أول)</label>
-              <input
-                className="form-input"
-                type="number"
-                min="0"
-                value={form.sort_order}
-                onChange={e => set('sort_order', e.target.value)}
-              />
-            </div>
-          </div>
-
-          <div className="owner-modal__footer">
-            <button
-              type="button"
-              className="btn btn--ghost"
-              onClick={onClose}
-              disabled={isBusy}
-            >
+          <div className="modal-footer" style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+            <button type="button" className="btn btn--secondary" onClick={onClose} disabled={isBusy}>
               إلغاء
             </button>
             <button
               type="submit"
               className="btn btn--primary"
+              style={{ background: 'var(--staff-rose-dark)', borderColor: 'var(--staff-rose-dark)' }}
               disabled={isBusy}
             >
-              {uploading ? '⏳ جارٍ رفع الصورة...' : saving ? 'جارٍ الحفظ...' : 'حفظ العرض'}
+              {isBusy ? (
+                <>
+                  <span className="spinner spinner--sm" />
+                  <span>{uploading ? 'جارٍ رفع الصورة...' : 'جارٍ الحفظ...'}</span>
+                </>
+              ) : offer ? (
+                '💾 حفظ التعديلات'
+              ) : (
+                '➕ إضافة العرض'
+              )}
             </button>
           </div>
         </form>
       </div>
-    </div>
-  )
-}
 
-// ─── OfferCard ───────────────────────────────────────────────────────────────
-
-function OfferCard({ offer, onToggle, onEdit, onExtendWeek, onExtendMonth, onEndNow, onDelete }) {
-  const expired = isExpired(offer)
-  const active = offer.is_active !== false && !expired
-
-  return (
-    <div className={`offer-card${!active ? ' offer-card--inactive' : ''}`}>
-      {/* Header: image + name + switch */}
-      <div className="offer-card__top">
-        <div className="offer-card__icon-wrap">
-          {offer.image_url ? (
-            <img
-              src={offer.image_url}
-              alt={offer.title_ar}
-              className="offer-card__img"
-              onError={e => {
-                e.currentTarget.style.display = 'none'
-                const fallback = e.currentTarget.parentElement.querySelector('.offer-card__icon-fallback')
-                if (fallback) fallback.style.display = 'flex'
-              }}
-            />
-          ) : null}
-          <span
-            className="offer-card__icon-fallback"
-            style={{ display: offer.image_url ? 'none' : 'flex' }}
-          >
-            🏷️
-          </span>
+      {/* ── Dialog تخصيص الخصم للبند ── */}
+      {customDiscountDialog && (
+        <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={() => setCustomDiscountDialog(null)}>
+          <div className="modal" style={{ maxWidth: '400px' }} onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h3 className="modal-title" style={{ fontSize: '15px' }}>خصم مخصص لـ {customDiscountDialog.name}</h3>
+              <button className="modal-close-btn" onClick={() => setCustomDiscountDialog(null)}>✕</button>
+            </div>
+            <div className="modal-body">
+              <p style={{ fontSize: '12px', color: 'var(--staff-muted)', margin: '0 0 12px' }}>
+                اترك القيمة فارغة للعودة إلى استخدام الخصم العام المطبق على العرض.
+              </p>
+              <div className="form-group" style={{ marginBottom: '10px' }}>
+                <label className="form-label">نوع الخصم المخصص</label>
+                <select id="custom_disc_type_owner" className="input" defaultValue={customDiscountDialog.current?.discount_type || 'fixed'}>
+                  <option value="fixed">خصم مبلغ ثابت (جنيه)</option>
+                  <option value="percentage">نسبة مئوية (%)</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label className="form-label">قيمة الخصم المخصص</label>
+                <input
+                  id="custom_disc_val_owner"
+                  type="number"
+                  min="0"
+                  className="input"
+                  defaultValue={customDiscountDialog.current?.discount_value || ''}
+                  placeholder="مثال: 50 أو 15"
+                />
+              </div>
+            </div>
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between' }}>
+              <button
+                type="button"
+                className="btn btn--secondary"
+                onClick={() => saveCustomDiscount(customDiscountDialog.key, 'percentage', '')}
+              >
+                إلغاء المخصص (عام)
+              </button>
+              <button
+                type="button"
+                className="btn btn--primary"
+                style={{ background: 'var(--staff-rose-dark)' }}
+                onClick={() => {
+                  const type = document.getElementById('custom_disc_type_owner').value
+                  const val = document.getElementById('custom_disc_val_owner').value
+                  saveCustomDiscount(customDiscountDialog.key, type, val)
+                }}
+              >
+                حفظ الخصم المخصص
+              </button>
+            </div>
+          </div>
         </div>
-
-        <div className="offer-card__info">
-          <span className="offer-card__name">{offer.title_ar || '—'}</span>
-          <span className="offer-card__discount-label">{discountLabel(offer)}</span>
-          {expired && <span className="offer-card__badge offer-card__badge--expired">منتهي</span>}
-        </div>
-
-        <label className="toggle-switch offer-card__toggle" aria-label="تفعيل/إيقاف العرض">
-          <input
-            type="checkbox"
-            checked={active}
-            onChange={() => onToggle(offer)}
-          />
-          <span className="toggle-slider" />
-        </label>
-      </div>
-
-      {/* Description */}
-      {offer.description_ar && (
-        <p className="offer-card__desc">{offer.description_ar}</p>
       )}
-
-      {/* Dates */}
-      <div className="offer-card__dates">
-        <span style={{ color: expired ? 'var(--danger)' : 'var(--success)' }}>
-          الانتهاء: {offer.valid_until ? fmtDate(offer.valid_until) : 'مفتوح'}
-        </span>
-      </div>
-
-      <div className="offer-card__divider" />
-
-      {/* Actions */}
-      <div className="offer-card__actions">
-        <button className="offer-card__btn offer-card__btn--edit" onClick={() => onEdit(offer)}>
-          ✏️ تعديل
-        </button>
-        <button className="offer-card__btn offer-card__btn--week" onClick={() => onExtendWeek(offer)}>
-          📅 +أسبوع
-        </button>
-        <button className="offer-card__btn offer-card__btn--month" onClick={() => onExtendMonth(offer)}>
-          📅 +شهر
-        </button>
-        <button className="offer-card__btn offer-card__btn--end" onClick={() => onEndNow(offer)}>
-          ⛔ إنهاء الآن
-        </button>
-        <button className="offer-card__btn offer-card__btn--delete" onClick={() => onDelete(offer)}>
-          🗑️ حذف
-        </button>
-      </div>
     </div>
   )
 }
 
-// ─── OffersPage ──────────────────────────────────────────────────────────────
+// ─── OffersPage Component ───────────────────────────────────────────────────
 
 export default function OffersPage() {
   const showToast = useToast()
   const [offers, setOffers] = useState([])
+  const [selectionData, setSelectionData] = useState({ tree: [], products: [], bundles: [] })
   const [loading, setLoading] = useState(true)
-  const [modalOffer, setModalOffer] = useState(undefined) // undefined=closed, null=new, obj=edit
+  const [filter, setFilter] = useState('all') // 'all' | 'active' | 'inactive' | 'expired'
+  const [modalOffer, setModalOffer] = useState(null)
+  const [isModalOpen, setIsModalOpen] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [confirmDelete, setConfirmDelete] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null)
+  const [deleting, setDeleting] = useState(false)
 
-  useEffect(() => { loadOffers() }, [])
+  useEffect(() => {
+    loadInitialData()
+  }, [])
 
-  async function loadOffers() {
+  async function loadInitialData() {
     setLoading(true)
     try {
-      setOffers(await getAllOffers())
+      const [offersData, selData] = await Promise.all([
+        getAllOffers(),
+        getOfferSelectionData().catch(() => ({ tree: [], products: [], bundles: [] })),
+      ])
+      setOffers(offersData)
+      setSelectionData(selData)
     } catch (e) {
       showToast('خطأ في تحميل العروض: ' + e.message, 'error')
     } finally {
@@ -444,181 +755,263 @@ export default function OffersPage() {
     }
   }
 
-  async function handleSave(form) {
-    // لو فيه خطأ رفع صورة من الـ modal، اعرضه وابقى
-    if (form._uploadError) {
-      return showToast('فشل رفع الصورة: ' + form._uploadError, 'error')
-    }
+  function openCreate() {
+    setModalOffer(null)
+    setIsModalOpen(true)
+  }
 
-    const title = form.title_ar.trim()
-    if (!title) return showToast('يرجى إدخال عنوان العرض', 'error')
-    const val = parseFloat(form.discount_value)
-    if (!val || val <= 0) return showToast('يرجى إدخال قيمة خصم صحيحة', 'error')
+  function openEdit(offer) {
+    setModalOffer(offer)
+    setIsModalOpen(true)
+  }
 
+  async function handleSave(formData) {
     setSaving(true)
     try {
-      const payload = {
-        title_ar: title,
-        description_ar: form.description_ar.trim() || null,
-        image_url: (form.image_url || '').trim() || null,
-        discount_type: form.discount_type,
-        discount_value: val,
-        start_date: form.start_date || null,
-        valid_until: form.valid_until || null,
-        is_active: true,
-        sort_order: parseInt(form.sort_order) || 0,
-      }
       if (modalOffer) {
-        await updateOffer({ ...payload, id: modalOffer.id })
-        showToast('تم تعديل العرض بنجاح 🎉', 'success')
+        await updateOffer({ id: modalOffer.id, ...formData })
+        showToast('تم تعديل العرض والمنتجات بنجاح ✨', 'success')
       } else {
-        await createOffer(payload)
-        showToast('تم إنشاء العرض بنجاح 🎉', 'success')
+        await createOffer(formData)
+        showToast('تمت إضافة العرض والمنتجات بنجاح 🏷️', 'success')
       }
-      setModalOffer(undefined)
-      await loadOffers()
+      setIsModalOpen(false)
+      const fresh = await getAllOffers()
+      setOffers(fresh)
     } catch (e) {
-      showToast('فشل حفظ العرض: ' + e.message, 'error')
+      showToast('خطأ أثناء الحفظ: ' + e.message, 'error')
     } finally {
       setSaving(false)
     }
   }
 
-
-  async function handleToggle(offer) {
+  async function handleToggleActive(offer) {
+    const nextState = !offer.is_active
     try {
-      await updateOfferStatusAndDuration({ offerId: offer.id, isActive: offer.is_active === false || isExpired(offer) })
-      showToast(`تم ${offer.is_active !== false && !isExpired(offer) ? 'إيقاف' : 'تفعيل'} العرض`, 'success')
-      await loadOffers()
+      await updateOfferStatusAndDuration({ offerId: offer.id, isActive: nextState })
+      setOffers((prev) =>
+        prev.map((o) => (o.id === offer.id ? { ...o, is_active: nextState } : o))
+      )
+      showToast(nextState ? 'تم تفعيل العرض' : 'تم إيقاف العرض', 'info')
     } catch (e) {
-      showToast('خطأ في تعديل حالة العرض: ' + e.message, 'error')
+      showToast('خطأ في تغيير الحالة: ' + e.message, 'error')
     }
   }
 
-  async function handleExtend(offer, days) {
+  async function handleDelete() {
+    if (!deleteTarget) return
+    setDeleting(true)
     try {
-      const base = offer.valid_until ? new Date(offer.valid_until) : new Date()
-      const newDate = new Date(base)
-      newDate.setDate(newDate.getDate() + days)
-      await updateOfferStatusAndDuration({
-        offerId: offer.id,
-        isActive: true,
-        validUntil: newDate.toISOString(),
-      })
-      showToast(`تم تمديد العرض ${days === 7 ? 'أسبوعاً' : 'شهراً'} بنجاح`, 'success')
-      await loadOffers()
-    } catch (e) {
-      showToast('خطأ في تمديد العرض: ' + e.message, 'error')
-    }
-  }
-
-  async function handleEndNow(offer) {
-    try {
-      await updateOfferStatusAndDuration({ offerId: offer.id, isActive: false })
-      showToast('تم إيقاف العرض', 'success')
-      await loadOffers()
-    } catch (e) {
-      showToast('خطأ في إيقاف العرض: ' + e.message, 'error')
-    }
-  }
-
-  async function handleDelete(offer) {
-    try {
-      await deleteOffer(offer.id)
-      showToast('تم حذف العرض بنجاح', 'success')
-      setConfirmDelete(null)
-      await loadOffers()
+      await deleteOffer(deleteTarget.id)
+      setOffers((prev) => prev.filter((o) => o.id !== deleteTarget.id))
+      showToast('تم حذف العرض', 'success')
+      setDeleteTarget(null)
     } catch (e) {
       showToast('خطأ في حذف العرض: ' + e.message, 'error')
+    } finally {
+      setDeleting(false)
     }
   }
+
+  const filteredOffers = offers.filter((o) => {
+    const exp = isExpired(o)
+    if (filter === 'active') return o.is_active && !exp
+    if (filter === 'inactive') return !o.is_active
+    if (filter === 'expired') return exp
+    return true
+  })
 
   return (
     <div className="owner-container">
       {/* ── الرأس ── */}
       <div className="owner-page-header">
         <div>
-          <h1 className="owner-page-title">🏷️ العروض والتسويق</h1>
-          <p className="owner-page-subtitle">
-            متابعة الباقات الترويجية، الخصومات وتفعيل أو إيقاف العروض للعميلات
-          </p>
+          <h1 className="owner-page-title">🏷️ إدارة العروض والخصومات</h1>
+          <p className="owner-page-subtitle">إنشاء وإدارة العروض الترويجية، الخصومات على المنتجات والخدمات</p>
         </div>
-        <button className="btn btn--primary" onClick={() => setModalOffer(null)}>
-          ＋ إنشاء عرض جديد
+        <button
+          className="btn btn--primary"
+          style={{ background: 'var(--staff-rose-dark)', borderColor: 'var(--staff-rose-dark)' }}
+          onClick={openCreate}
+        >
+          ➕ إضافة عرض جديد
         </button>
       </div>
 
+      {/* ── الفلاتر ── */}
+      <div className="owner-filters-card">
+        <div className="owner-period-tabs">
+          <button
+            className={`owner-period-tab${filter === 'all' ? ' owner-period-tab--active' : ''}`}
+            onClick={() => setFilter('all')}
+          >
+            الكل ({offers.length})
+          </button>
+          <button
+            className={`owner-period-tab${filter === 'active' ? ' owner-period-tab--active' : ''}`}
+            onClick={() => setFilter('active')}
+          >
+            النشطة ({offers.filter((o) => o.is_active && !isExpired(o)).length})
+          </button>
+          <button
+            className={`owner-period-tab${filter === 'inactive' ? ' owner-period-tab--active' : ''}`}
+            onClick={() => setFilter('inactive')}
+          >
+            المعطلة ({offers.filter((o) => !o.is_active).length})
+          </button>
+          <button
+            className={`owner-period-tab${filter === 'expired' ? ' owner-period-tab--active' : ''}`}
+            onClick={() => setFilter('expired')}
+          >
+            المنتهية ({offers.filter(isExpired).length})
+          </button>
+        </div>
+      </div>
+
+      {/* ── شبكة العروض ── */}
       {loading ? (
         <div className="loading-center" style={{ minHeight: '300px' }}>
           <span className="spinner spinner--lg" />
-          <span>جارٍ تحميل العروض...</span>
+          <span>جارٍ التحميل...</span>
         </div>
-      ) : offers.length === 0 ? (
+      ) : filteredOffers.length === 0 ? (
         <div className="owner-card">
           <div className="owner-empty-state">
-            <span>لا توجد عروض ترويجية مسجلة حالياً</span>
-            <button
-              className="btn btn--primary"
-              style={{ marginTop: '1rem' }}
-              onClick={() => setModalOffer(null)}
-            >
-              ＋ إنشاء أول عرض
-            </button>
+            <span style={{ fontSize: '40px', display: 'block', marginBottom: '8px' }}>🏷️</span>
+            <span>لا توجد عروض في هذا القسم</span>
           </div>
         </div>
       ) : (
         <div className="owner-offers-grid">
-          {offers.map(offer => (
-            <OfferCard
-              key={offer.id}
-              offer={offer}
-              onToggle={handleToggle}
-              onEdit={o => setModalOffer(o)}
-              onExtendWeek={o => handleExtend(o, 7)}
-              onExtendMonth={o => handleExtend(o, 30)}
-              onEndNow={handleEndNow}
-              onDelete={o => setConfirmDelete(o)}
-            />
-          ))}
+          {filteredOffers.map((offer) => {
+            const exp = isExpired(offer)
+            const active = offer.is_active && !exp
+            const targetCount = Array.isArray(offer.service_offer_targets) ? offer.service_offer_targets.length : 0
+
+            return (
+              <div
+                key={offer.id}
+                className={`owner-offer-card${!offer.is_active ? ' owner-offer-card--inactive' : ''}`}
+              >
+                {/* الصورة */}
+                {offer.image_url ? (
+                  <img
+                    src={offer.image_url}
+                    alt={offer.title_ar}
+                    className="owner-offer-card__image"
+                  />
+                ) : (
+                  <div className="owner-offer-card__image-placeholder">💎</div>
+                )}
+
+                {/* المحتوى */}
+                <div className="owner-offer-card__body">
+                  <div className="owner-offer-card__top">
+                    <h3 className="owner-offer-card__title">{offer.title_ar}</h3>
+                    <span
+                      className={`badge ${
+                        active ? 'badge--success' : exp ? 'badge--danger' : 'badge--warning'
+                      }`}
+                    >
+                      {active ? 'نشط' : exp ? 'منتهي' : 'معطل'}
+                    </span>
+                  </div>
+
+                  <div className="owner-offer-card__discount">
+                    {discountLabel(offer)}
+                  </div>
+
+                  {targetCount > 0 && (
+                    <div style={{ fontSize: '12px', color: 'var(--staff-rose-dark)', fontWeight: 'bold', marginBottom: '6px' }}>
+                      🎯 يشمل {targetCount} منتج / خدمة محددة
+                    </div>
+                  )}
+
+                  {offer.description_ar && (
+                    <p className="owner-offer-card__desc">{offer.description_ar}</p>
+                  )}
+
+                  <div className="owner-offer-card__dates">
+                    {offer.start_date && (
+                      <span>📅 يبدأ: {fmtDate(offer.start_date)}</span>
+                    )}
+                    {offer.valid_until && (
+                      <span>⏳ ينتهي: {fmtDate(offer.valid_until)}</span>
+                    )}
+                    <span>🔢 الترتيب: {offer.sort_order ?? 0}</span>
+                  </div>
+
+                  {/* الإجراءات */}
+                  <div className="owner-offer-card__actions">
+                    <button
+                      className={`btn btn--sm ${
+                        offer.is_active ? 'btn--secondary' : 'btn--primary'
+                      }`}
+                      style={!offer.is_active ? { background: 'var(--staff-rose-dark)' } : {}}
+                      onClick={() => handleToggleActive(offer)}
+                    >
+                      {offer.is_active ? 'تعطيل' : 'تفعيل'}
+                    </button>
+
+                    <button
+                      className="btn btn--sm btn--secondary"
+                      onClick={() => openEdit(offer)}
+                    >
+                      ✏️ تعديل
+                    </button>
+
+                    <button
+                      className="btn btn--sm btn--danger"
+                      onClick={() => setDeleteTarget(offer)}
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
         </div>
       )}
 
-      {/* ── Modal إضافة/تعديل ── */}
-      {modalOffer !== undefined && (
+      {/* ── مودال الإضافة والتعديل ── */}
+      {isModalOpen && (
         <OfferFormModal
           offer={modalOffer}
+          selectionData={selectionData}
           onSave={handleSave}
-          onClose={() => { if (!saving) setModalOffer(undefined) }}
+          onClose={() => setIsModalOpen(false)}
           saving={saving}
         />
       )}
 
-      {/* ── Confirm Delete ── */}
-      {confirmDelete && (
-        <div className="owner-modal-overlay" onClick={() => setConfirmDelete(null)}>
+      {/* ── تأكيد الحذف ── */}
+      {deleteTarget && (
+        <div className="modal-overlay" onClick={() => setDeleteTarget(null)}>
           <div
-            className="owner-modal"
-            onClick={e => e.stopPropagation()}
-            dir="rtl"
+            className="modal"
+            style={{ maxWidth: '400px', textAlign: 'center' }}
+            onClick={(e) => e.stopPropagation()}
           >
-            <div className="owner-modal__header">
-              <h2 className="owner-modal__title">تأكيد الحذف</h2>
-            </div>
-            <div className="owner-modal__body">
-              <p>هل أنت متأكد من حذف العرض <strong>{confirmDelete.title_ar}</strong>؟</p>
-              <p style={{ color: 'var(--danger)', fontSize: '0.85rem', marginTop: '0.5rem' }}>
-                ⚠️ لا يمكن التراجع عن هذا الإجراء
-              </p>
-            </div>
-            <div className="owner-modal__footer">
-              <button className="btn btn--ghost" onClick={() => setConfirmDelete(null)}>
+            <div style={{ fontSize: '40px', marginBottom: '12px' }}>⚠️</div>
+            <h3 style={{ margin: '0 0 8px' }}>حذف العرض نهائياً؟</h3>
+            <p style={{ color: 'var(--staff-muted)', fontSize: '14px', margin: '0 0 20px' }}>
+              هل أنتِ متأكدة من حذف "{deleteTarget.title_ar}"؟ لا يمكن التراجع عن هذا الإجراء.
+            </p>
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center' }}>
+              <button
+                className="btn btn--secondary"
+                onClick={() => setDeleteTarget(null)}
+                disabled={deleting}
+              >
                 إلغاء
               </button>
               <button
                 className="btn btn--danger"
-                onClick={() => handleDelete(confirmDelete)}
+                onClick={handleDelete}
+                disabled={deleting}
               >
-                حذف نهائياً
+                {deleting ? 'جارٍ الحذف...' : 'نعم، احذف'}
               </button>
             </div>
           </div>

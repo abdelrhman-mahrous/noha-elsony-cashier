@@ -432,6 +432,87 @@ export async function uploadOfferImage(file) {
   return data.publicUrl
 }
 
+export async function getOfferSelectionData() {
+  // 1. شجرة الخدمات (Categories -> Groups -> Items)
+  let tree = []
+  try {
+    const { data: categories } = await supabase
+      .from('service_categories')
+      .select('id, name_ar, icon_name, sort_order')
+      .order('sort_order', { ascending: true })
+
+    if (categories && categories.length > 0) {
+      const { data: groups } = await supabase
+        .from('service_groups')
+        .select('id, name_ar, category_id, sort_order')
+        .order('sort_order', { ascending: true })
+
+      const { data: items } = await supabase
+        .from('service_items')
+        .select('id, name_ar, group_id, price, min_price, max_price, has_price_range, sort_order')
+        .order('sort_order', { ascending: true })
+
+      const groupsMap = {}
+      ;(groups || []).forEach(g => {
+        groupsMap[g.id] = { ...g, items: [] }
+      })
+
+      ;(items || []).forEach(it => {
+        if (groupsMap[it.group_id]) {
+          groupsMap[it.group_id].items.push(it)
+        }
+      })
+
+      tree = categories.map(c => ({
+        ...c,
+        groups: (groups || []).filter(g => g.category_id === c.id).map(g => groupsMap[g.id] || { ...g, items: [] })
+      }))
+    }
+  } catch (err) {
+    console.warn('Error fetching service categories:', err.message)
+  }
+
+  // 2. المنتجات (Products)
+  let products = []
+  try {
+    const { data: prodData } = await supabase
+      .from('products_full')
+      .select('id, name, price, is_active')
+      .eq('is_active', true)
+      .order('name')
+    if (prodData) products = prodData
+  } catch (_) {
+    try {
+      const { data: prodData2 } = await supabase
+        .from('products')
+        .select('id, name, price, is_active')
+        .eq('is_active', true)
+        .order('name')
+      if (prodData2) products = prodData2
+    } catch (_) {}
+  }
+
+  // 3. باقات المنتجات (Bundles)
+  let bundles = []
+  try {
+    const { data: bundleData } = await supabase
+      .from('bundles_full')
+      .select('id, name, is_active')
+      .eq('is_active', true)
+    if (bundleData) bundles = bundleData
+  } catch (_) {
+    try {
+      const { data: bundleData2 } = await supabase
+        .from('product_bundles')
+        .select('id, name, is_active')
+        .eq('is_active', true)
+      if (bundleData2) bundles = bundleData2
+    } catch (_) {}
+  }
+
+  return { tree, products, bundles }
+}
+
 export async function createOffer(offer) {
   const offerData = {
     title_ar: offer.title_ar,
@@ -450,7 +531,22 @@ export async function createOffer(offer) {
     .select('id')
     .single()
   if (error) throw new Error(error.message)
-  return data.id
+  const offerId = data.id
+
+  // إضافة البنود المستهدفة (Targets)
+  if (Array.isArray(offer.targets) && offer.targets.length > 0) {
+    const targetRows = offer.targets.map(t => ({
+      offer_id: offerId,
+      target_type: t.target_type,
+      target_id: t.target_id,
+      discount_type: t.discount_type || null,
+      discount_value: t.discount_value != null && Number(t.discount_value) > 0 ? Number(t.discount_value) : null,
+    }))
+    const { error: targetErr } = await supabase.from('service_offer_targets').insert(targetRows)
+    if (targetErr) console.warn('Error inserting offer targets:', targetErr.message)
+  }
+
+  return offerId
 }
 
 export async function updateOffer(offer) {
@@ -470,6 +566,23 @@ export async function updateOffer(offer) {
     .update(offerData)
     .eq('id', offer.id)
   if (error) throw new Error(error.message)
+
+  // حذف البنود القديمة وإعادة إضافة المحدثة
+  try {
+    await supabase.from('service_offer_targets').delete().eq('offer_id', offer.id)
+    if (Array.isArray(offer.targets) && offer.targets.length > 0) {
+      const targetRows = offer.targets.map(t => ({
+        offer_id: offer.id,
+        target_type: t.target_type,
+        target_id: t.target_id,
+        discount_type: t.discount_type || null,
+        discount_value: t.discount_value != null && Number(t.discount_value) > 0 ? Number(t.discount_value) : null,
+      }))
+      await supabase.from('service_offer_targets').insert(targetRows)
+    }
+  } catch (err) {
+    console.warn('Error updating offer targets:', err.message)
+  }
 }
 
 export async function updateOfferStatusAndDuration({ offerId, isActive, validUntil }) {

@@ -1,0 +1,947 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Barber / Stylist Web Portal — Salon Al-Araby
+   Dark Royal Blue & Gold Theme | Luxury Aesthetics | Responsive RTL
+   ═══════════════════════════════════════════════════════════════════ */
+
+:root {
+  --barber-primary: #1e3a8a;
+  --barber-primary-dark: #0f172a;
+  --barber-primary-light: #3b82f6;
+  --barber-accent: #d4af37;
+  --barber-accent-light: #fef08a;
+  --barber-teal: #0d9488;
+  --barber-teal-light: #14b8a6;
+  --barber-purple: #7c3aed;
+  --barber-rose: #e11d48;
+  
+  --barber-bg: #090d16;
+  --barber-surface: #111827;
+  --barber-surface-card: #1e293b;
+  --barber-surface-hover: #334155;
+  --barber-border: rgba(255, 255, 255, 0.08);
+  --barber-border-gold: rgba(212, 175, 55, 0.3);
+  
+  --barber-text: #f8fafc;
+  --barber-text-muted: #94a3b8;
+  --barber-text-faint: #64748b;
+  
+  --barber-radius: 16px;
+  --barber-radius-lg: 24px;
+  --barber-radius-pill: 9999px;
+  
+  --barber-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+  --barber-glow: 0 0 20px rgba(59, 130, 246, 0.25);
+  --barber-glow-gold: 0 0 25px rgba(212, 175, 55, 0.3);
+}
+
+/* ── Shell & Container ────────────────────────────────────────── */
+.barber-shell {
+  min-height: 100dvh;
+  background: radial-gradient(circle at 50% 0%, #172554 0%, #090d16 65%);
+  color: var(--barber-text);
+  display: flex;
+  flex-direction: column;
+  direction: rtl;
+  font-family: 'Cairo', system-ui, -apple-system, sans-serif;
+}
+
+.barber-container {
+  max-width: 1000px;
+  width: 100%;
+  margin: 0 auto;
+  padding: 1.25rem 1rem 3rem 1rem;
+  flex: 1;
+}
+
+/* ── Top Bar ──────────────────────────────────────────────────── */
+.barber-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 40;
+  background: rgba(17, 24, 39, 0.88);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--barber-border);
+  padding: 0.75rem 1.25rem;
+}
+
+.barber-topbar__inner {
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.barber-topbar__profile {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.barber-avatar {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--barber-radius-pill);
+  background: linear-gradient(135deg, var(--barber-primary), var(--barber-accent));
+  border: 2px solid var(--barber-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  box-shadow: var(--barber-glow-gold);
+  flex-shrink: 0;
+}
+
+.barber-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.barber-avatar__placeholder {
+  font-size: 1.5rem;
+  color: #fff;
+}
+
+.barber-topbar__info {
+  display: flex;
+  flex-direction: column;
+}
+
+.barber-topbar__name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.barber-topbar__rating {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+  color: var(--barber-text-muted);
+}
+
+.barber-topbar__rating .star-icon {
+  color: #fbbf24;
+  font-size: 0.95rem;
+}
+
+.barber-topbar__actions {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.barber-btn-icon {
+  background: var(--barber-surface-card);
+  border: 1px solid var(--barber-border);
+  color: var(--barber-text);
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-size: 1.1rem;
+}
+
+.barber-btn-icon:hover {
+  background: var(--barber-surface-hover);
+  border-color: var(--barber-accent);
+  transform: translateY(-2px);
+}
+
+.barber-btn-icon--active {
+  border-color: var(--barber-teal-light);
+  color: var(--barber-teal-light);
+  box-shadow: 0 0 12px rgba(20, 184, 166, 0.3);
+}
+
+.barber-btn-icon--logout:hover {
+  border-color: var(--barber-rose);
+  color: var(--barber-rose);
+}
+
+/* ── Live Status Badge ────────────────────────────────────────── */
+.barber-live-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(13, 148, 136, 0.15);
+  border: 1px solid rgba(13, 148, 136, 0.4);
+  color: #2dd4bf;
+  padding: 4px 10px;
+  border-radius: var(--barber-radius-pill);
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.barber-live-badge__dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: #2dd4bf;
+  box-shadow: 0 0 8px #2dd4bf;
+  animation: pulseDot 1.5s infinite;
+}
+
+@keyframes pulseDot {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.4); opacity: 0.5; }
+}
+
+/* ── Banner Notification for New Task ────────────────────────── */
+.barber-alert-banner {
+  background: linear-gradient(135deg, #0f766e 0%, #115e59 100%);
+  border: 1px solid #2dd4bf;
+  border-radius: var(--barber-radius);
+  padding: 1rem 1.25rem;
+  margin-bottom: 1.25rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  box-shadow: 0 8px 20px rgba(13, 148, 136, 0.35);
+  animation: slideDownAlert 0.35s ease-out;
+}
+
+@keyframes slideDownAlert {
+  from { opacity: 0; transform: translateY(-15px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.barber-alert-banner__content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.barber-alert-banner__icon {
+  font-size: 1.6rem;
+  animation: ringBell 0.8s ease-in-out infinite alternate;
+}
+
+@keyframes ringBell {
+  from { transform: rotate(-12deg); }
+  to { transform: rotate(12deg); }
+}
+
+.barber-alert-banner__title {
+  font-weight: 700;
+  font-size: 1.05rem;
+  color: #fff;
+}
+
+.barber-alert-banner__sub {
+  font-size: 0.85rem;
+  color: #ccfbf1;
+}
+
+.barber-alert-banner__btn {
+  background: #ffffff;
+  color: #0f766e;
+  border: none;
+  font-weight: 700;
+  padding: 0.5rem 1.15rem;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s;
+  flex-shrink: 0;
+}
+
+.barber-alert-banner__btn:hover {
+  background: #f0fdfa;
+  transform: scale(1.04);
+}
+
+/* ── Stats Hero Section ───────────────────────────────────────── */
+.barber-stats-card {
+  background: linear-gradient(135deg, #1e3a8a 0%, #1e1b4b 60%, #0f172a 100%);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  border-radius: var(--barber-radius-lg);
+  padding: 1.5rem 1.25rem;
+  margin-bottom: 1.5rem;
+  box-shadow: var(--barber-shadow), var(--barber-glow);
+  position: relative;
+  overflow: hidden;
+}
+
+.barber-stats-card::before {
+  content: '';
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: radial-gradient(circle, rgba(212, 175, 55, 0.08) 0%, transparent 70%);
+  pointer-events: none;
+}
+
+.barber-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+  position: relative;
+  z-index: 1;
+}
+
+.barber-stat-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  position: relative;
+}
+
+.barber-stat-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 15%;
+  height: 70%;
+  width: 1px;
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.barber-stat-item__icon {
+  font-size: 1.6rem;
+  margin-bottom: 0.4rem;
+  color: var(--barber-accent);
+}
+
+.barber-stat-item__val {
+  font-size: 1.65rem;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.barber-stat-item__val--gold {
+  color: #fef08a;
+  text-shadow: 0 0 10px rgba(254, 240, 138, 0.3);
+}
+
+.barber-stat-item__label {
+  font-size: 0.8rem;
+  color: rgba(255, 255, 255, 0.75);
+  margin-top: 0.25rem;
+}
+
+/* ── Filter Tabs ──────────────────────────────────────────────── */
+.barber-filter-tabs {
+  background: var(--barber-surface-card);
+  border: 1px solid var(--barber-border);
+  border-radius: var(--barber-radius);
+  padding: 6px;
+  display: flex;
+  gap: 6px;
+  margin-bottom: 1.5rem;
+}
+
+.barber-filter-tab {
+  flex: 1;
+  background: transparent;
+  border: none;
+  color: var(--barber-text-muted);
+  font-weight: 700;
+  font-size: 0.95rem;
+  padding: 0.65rem 0.5rem;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+.barber-filter-tab:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.barber-filter-tab--active {
+  background: linear-gradient(135deg, var(--barber-primary), #2563eb);
+  color: #fff;
+  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.35);
+}
+
+.barber-filter-tab__count {
+  background: rgba(255, 255, 255, 0.2);
+  padding: 2px 7px;
+  border-radius: 20px;
+  font-size: 0.75rem;
+}
+
+/* ── Appointments List ────────────────────────────────────────── */
+.barber-appointments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.barber-appointment-card {
+  background: var(--barber-surface-card);
+  border: 1px solid var(--barber-border);
+  border-radius: var(--barber-radius);
+  padding: 1.25rem;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  overflow: hidden;
+  box-shadow: var(--barber-shadow);
+}
+
+.barber-appointment-card:hover {
+  border-color: rgba(59, 130, 246, 0.4);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px -5px rgba(0, 0, 0, 0.6);
+}
+
+.barber-appointment-card--completed {
+  opacity: 0.85;
+  border-color: rgba(34, 197, 94, 0.3);
+  background: rgba(30, 41, 59, 0.75);
+}
+
+.barber-appointment-card--today {
+  border-left: 4px solid var(--barber-accent);
+}
+
+.barber-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.barber-client-info {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.barber-client-avatar {
+  width: 58px;
+  height: 58px;
+  border-radius: 14px;
+  background: var(--barber-surface-hover);
+  border: 1px solid var(--barber-border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.barber-client-avatar:hover {
+  transform: scale(1.05);
+}
+
+.barber-client-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.barber-client-details {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.barber-client-name {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: #fff;
+}
+
+.barber-package-name {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #93c5fd;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.barber-client-phone {
+  font-size: 0.85rem;
+  color: var(--barber-text-muted);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.barber-client-phone:hover {
+  color: #2dd4bf;
+}
+
+.barber-card-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.barber-status-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 5px 12px;
+  border-radius: var(--barber-radius-pill);
+  font-size: 0.8rem;
+  font-weight: 700;
+}
+
+.barber-status-badge--upcoming {
+  background: rgba(13, 148, 136, 0.18);
+  border: 1px solid rgba(13, 148, 136, 0.4);
+  color: #2dd4bf;
+}
+
+.barber-status-badge--completed {
+  background: rgba(34, 197, 94, 0.18);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #4ade80;
+}
+
+.barber-status-badge--cancelled {
+  background: rgba(239, 68, 68, 0.18);
+  border: 1px solid rgba(239, 68, 68, 0.4);
+  color: #f87171;
+}
+
+.barber-price-tag {
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: #c084fc;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* ── Appointment Info Rows ────────────────────────────────────── */
+.barber-info-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1.25rem;
+  padding: 0.75rem 0;
+  border-top: 1px solid var(--barber-border);
+  font-size: 0.88rem;
+  color: var(--barber-text-muted);
+}
+
+.barber-info-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #e2e8f0;
+}
+
+.barber-time-countdown {
+  background: rgba(212, 175, 55, 0.15);
+  border: 1px solid rgba(212, 175, 55, 0.4);
+  color: #fef08a;
+  padding: 3px 9px;
+  border-radius: var(--barber-radius-pill);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
+.barber-notes-box {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px dashed var(--barber-border);
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-top: 6px;
+  font-size: 0.85rem;
+  color: #cbd5e1;
+}
+
+/* ── Card Action Buttons ──────────────────────────────────────── */
+.barber-card-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--barber-border);
+}
+
+.barber-btn-reminder {
+  flex: 1;
+  background: transparent;
+  border: 1px solid #8b5cf6;
+  color: #c084fc;
+  font-weight: 700;
+  padding: 0.65rem 1rem;
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s;
+  font-size: 0.9rem;
+}
+
+.barber-btn-reminder:hover {
+  background: rgba(139, 92, 246, 0.15);
+  transform: translateY(-2px);
+}
+
+.barber-btn-complete {
+  flex: 2;
+  background: linear-gradient(135deg, #0d9488, #14b8a6);
+  border: none;
+  color: #fff;
+  font-weight: 700;
+  padding: 0.65rem 1rem;
+  border-radius: 12px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  transition: all 0.2s;
+  font-size: 0.95rem;
+  box-shadow: 0 4px 14px rgba(13, 148, 136, 0.35);
+}
+
+.barber-btn-complete:hover {
+  background: linear-gradient(135deg, #0f766e, #0d9488);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(13, 148, 136, 0.5);
+}
+
+.barber-btn-complete:disabled {
+  background: #334155;
+  color: #94a3b8;
+  cursor: not-allowed;
+  box-shadow: none;
+  transform: none;
+}
+
+/* ── Login Page ───────────────────────────────────────────────── */
+.barber-login-wrap {
+  min-height: 100dvh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
+  background: radial-gradient(circle at 50% 30%, #1e3a8a 0%, #090d16 70%);
+  direction: rtl;
+}
+
+.barber-login-card {
+  background: var(--barber-surface);
+  border: 1px solid var(--barber-border-gold);
+  border-radius: var(--barber-radius-lg);
+  padding: 2.5rem 2rem;
+  max-width: 440px;
+  width: 100%;
+  box-shadow: var(--barber-shadow), var(--barber-glow-gold);
+  text-align: center;
+  animation: fadeInLogin 0.4s ease;
+}
+
+@keyframes fadeInLogin {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.barber-login-logo {
+  width: 80px;
+  height: 80px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--barber-primary), var(--barber-accent));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 2.2rem;
+  color: #fff;
+  margin: 0 auto 1.5rem auto;
+  box-shadow: var(--barber-glow-gold);
+}
+
+.barber-login-title {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: #fff;
+  margin-bottom: 0.35rem;
+}
+
+.barber-login-sub {
+  font-size: 0.9rem;
+  color: var(--barber-text-muted);
+  margin-bottom: 2rem;
+}
+
+.barber-form-group {
+  margin-bottom: 1.25rem;
+  text-align: right;
+}
+
+.barber-form-label {
+  display: block;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  margin-bottom: 0.4rem;
+}
+
+.barber-input-box {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.barber-input-box__icon {
+  position: absolute;
+  right: 14px;
+  color: var(--barber-text-faint);
+  font-size: 1.1rem;
+}
+
+.barber-input {
+  width: 100%;
+  background: var(--barber-surface-card);
+  border: 1px solid var(--barber-border);
+  color: #fff;
+  padding: 0.75rem 2.8rem 0.75rem 1rem;
+  border-radius: 12px;
+  font-size: 0.95rem;
+  font-family: inherit;
+  transition: all 0.2s;
+}
+
+.barber-input:focus {
+  outline: none;
+  border-color: var(--barber-accent);
+  box-shadow: 0 0 12px rgba(212, 175, 55, 0.25);
+}
+
+.barber-input-toggle {
+  position: absolute;
+  left: 12px;
+  background: none;
+  border: none;
+  color: var(--barber-text-muted);
+  cursor: pointer;
+  font-size: 1.1rem;
+}
+
+.barber-login-btn {
+  width: 100%;
+  background: linear-gradient(135deg, var(--barber-primary), #2563eb);
+  border: none;
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.05rem;
+  padding: 0.9rem;
+  border-radius: 14px;
+  cursor: pointer;
+  transition: all 0.25s;
+  margin-top: 1rem;
+  box-shadow: 0 4px 18px rgba(37, 99, 235, 0.4);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.barber-login-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(37, 99, 235, 0.6);
+}
+
+.barber-login-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* ── Modals & Popups ──────────────────────────────────────────── */
+.barber-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(8px);
+  z-index: 99;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  direction: rtl;
+  animation: fadeInOverlay 0.2s ease;
+}
+
+@keyframes fadeInOverlay {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.barber-modal-box {
+  background: var(--barber-surface);
+  border: 1px solid var(--barber-border-gold);
+  border-radius: var(--barber-radius-lg);
+  padding: 1.75rem;
+  max-width: 480px;
+  width: 100%;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.8);
+  animation: popModal 0.25s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes popModal {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.barber-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid var(--barber-border);
+}
+
+.barber-modal-title {
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: #fff;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.barber-modal-close {
+  background: none;
+  border: none;
+  color: var(--barber-text-muted);
+  font-size: 1.2rem;
+  cursor: pointer;
+  padding: 4px;
+}
+
+.barber-modal-close:hover {
+  color: #fff;
+}
+
+.barber-modal-actions {
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 1.5rem;
+}
+
+.barber-btn-secondary {
+  flex: 1;
+  background: var(--barber-surface-card);
+  border: 1px solid var(--barber-border);
+  color: #cbd5e1;
+  font-weight: 700;
+  padding: 0.75rem;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.barber-btn-secondary:hover {
+  background: var(--barber-surface-hover);
+  color: #fff;
+}
+
+.barber-btn-primary {
+  flex: 1;
+  background: linear-gradient(135deg, var(--barber-teal), var(--barber-teal-light));
+  border: none;
+  color: #fff;
+  font-weight: 700;
+  padding: 0.75rem;
+  border-radius: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.barber-btn-primary:hover {
+  filter: brightness(1.1);
+  transform: translateY(-2px);
+}
+
+/* ── Empty State ──────────────────────────────────────────────── */
+.barber-empty-state {
+  text-align: center;
+  padding: 3.5rem 1.5rem;
+  background: var(--barber-surface-card);
+  border: 1px dashed var(--barber-border);
+  border-radius: var(--barber-radius);
+}
+
+.barber-empty-icon {
+  font-size: 3.5rem;
+  margin-bottom: 1rem;
+  color: var(--barber-text-faint);
+}
+
+.barber-empty-text {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--barber-text-muted);
+}
+
+.barber-empty-sub {
+  font-size: 0.85rem;
+  color: var(--barber-text-faint);
+  margin-top: 0.35rem;
+}
+
+/* ── Image Preview Screen Modal ───────────────────────────────── */
+.barber-image-preview-img {
+  max-width: 100%;
+  max-height: 70vh;
+  border-radius: 14px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+}
+
+/* ── Responsive adjustments ───────────────────────────────────── */
+@media (max-width: 768px) {
+  .barber-stats-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem 0.75rem;
+  }
+  
+  .barber-stat-item:nth-child(2)::after {
+    display: none;
+  }
+  
+  .barber-card-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .barber-card-meta {
+    flex-direction: row;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 0.5rem;
+  }
+  
+  .barber-card-actions {
+    flex-direction: column;
+  }
+}

@@ -586,42 +586,31 @@ export async function updateOffer(offer) {
 }
 
 export async function updateOfferStatusAndDuration({ offerId, isActive, validUntil }) {
+  // Try the RPC first (same as Flutter), fallback to direct update
+  try {
+    const params = { p_offer_id: offerId }
+    if (isActive !== undefined) params.p_is_active = isActive
+    if (validUntil !== undefined) params.p_valid_until = validUntil
+    const { error } = await supabase.rpc('update_offer_status_and_duration', params)
+    if (!error) return
+  } catch (_) { }
+
+  // direct fallback
   const patch = {}
   if (isActive !== undefined) patch.is_active = isActive
   if (validUntil !== undefined) patch.valid_until = validUntil
-
   const { error } = await supabase
     .from('service_offers')
     .update(patch)
     .eq('id', offerId)
-
-  if (error) {
-    // Fallback to RPC if direct update failed
-    try {
-      const params = { p_offer_id: offerId }
-      if (isActive !== undefined) params.p_is_active = isActive
-      if (validUntil !== undefined) params.p_valid_until = validUntil
-      const { error: rpcErr } = await supabase.rpc('update_offer_status_and_duration', params)
-      if (rpcErr) throw rpcErr
-    } catch (e2) {
-      throw new Error(error.message || e2.message)
-    }
-  }
+  if (error) throw new Error(error.message)
 }
 
 export async function deleteOffer(offerId) {
-  // First clean up targets to prevent foreign key errors
-  try {
-    await supabase.from('service_offer_targets').delete().eq('offer_id', offerId)
-  } catch (err) {
-    console.warn('Targets deletion notice:', err.message)
-  }
-
   const { error } = await supabase
     .from('service_offers')
     .delete()
     .eq('id', offerId)
-
   if (error) throw new Error(error.message)
 }
 

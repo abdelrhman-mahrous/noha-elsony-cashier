@@ -9,7 +9,6 @@ import ChangePasswordPage from './pages/ChangePasswordPage'
 import OwnerApp from './owner/OwnerApp'
 import MarketingApp from './marketing/MarketingApp'
 import ClientApp from './client/ClientApp'
-import BarberApp from './barber/BarberApp'
 
 function CashierShell() {
   const { cashier, loading } = useAuth()
@@ -66,11 +65,6 @@ export default function App() {
           <Route path="/pos" element={<Navigate to="/cashier" replace />} />
           <Route path="/history" element={<Navigate to="/cashier/history" replace />} />
           <Route path="/change-password" element={<Navigate to="/cashier/change-password" replace />} />
-
-          {/* ✂️ بوابة الكوافيرات والأخصائيات ومتابعة المهام */}
-          <Route path="/barber/*" element={<BarberApp />} />
-          <Route path="/stylist/*" element={<Navigate to="/barber" replace />} />
-          <Route path="/hairdresser/*" element={<Navigate to="/barber" replace />} />
 
           {/* 🌸 منصة العميلات الملكية (حجز وتصفح وخدمات ومتجر) */}
           <Route path="/*" element={<ClientApp />} />

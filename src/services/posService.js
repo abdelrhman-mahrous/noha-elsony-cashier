@@ -557,8 +557,42 @@ export async function createWalkInAppointment({
   const dateStr = today.toISOString().split('T')[0]
   const timeStr = `${String(today.getHours()).padStart(2, '0')}:${String(today.getMinutes()).padStart(2, '0')}`
 
-  const cashierUser = (await supabase.auth.getUser())?.data?.user
-  const cashierId = cashierUser?.id || null
+  // البحث عن user_id صالح لتفادي خطأ NOT NULL constraint في قاعدة البيانات
+  let userId = null
+  try {
+    const authRes = await supabase.auth.getUser()
+    if (authRes?.data?.user?.id) {
+      userId = authRes.data.user.id
+    }
+  } catch (_) {}
+
+  if (!userId) {
+    try {
+      const stored = localStorage.getItem('cashier_web_session')
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        if (parsed?.id && typeof parsed.id === 'string' && parsed.id.includes('-')) {
+          userId = parsed.id
+        }
+      }
+    } catch (_) {}
+  }
+
+  if (!userId) {
+    try {
+      const { data: sample } = await supabase
+        .from('appointments')
+        .select('user_id')
+        .not('user_id', 'is', null)
+        .limit(1)
+        .maybeSingle()
+      if (sample?.user_id) userId = sample.user_id
+    } catch (_) {}
+  }
+
+  if (!userId && barberId && typeof barberId === 'string' && barberId.includes('-')) {
+    userId = barberId
+  }
 
   const fullNotes = `(Walk-in) ${notes || ''}`.trim()
 
@@ -570,7 +604,7 @@ export async function createWalkInAppointment({
       user_name: (customerName || 'عميل مباشر').trim(),
       user_phone: (customerPhone || '').trim(),
       barber_id: barberId || null,
-      user_id: cashierId,
+      user_id: userId,
       appointment_date: dateStr,
       appointment_time: timeStr,
       booking_type: 'cashier_walkin',

@@ -7,6 +7,7 @@ import PosPage from './pages/PosPage'
 import HistoryPage from './pages/HistoryPage'
 import ChangePasswordPage from './pages/ChangePasswordPage'
 import OwnerApp from './owner/OwnerApp'
+import MarketingApp from './marketing/MarketingApp'
 import ClientApp from './client/ClientApp'
 
 function CashierShell() {
@@ -53,6 +54,11 @@ export default function App() {
         <Routes>
           {/* 👑 بوابة صاحبة الصالون */}
           <Route path="/owner/*" element={<OwnerApp />} />
+
+          {/* 💎 بوابة التسويق والعروض والشكاوى */}
+          <Route path="/marketing/*" element={<MarketingApp />} />
+          <Route path="/offers" element={<Navigate to="/marketing/offers" replace />} />
+          <Route path="/reviews" element={<Navigate to="/marketing/reviews" replace />} />
 
           {/* 🖥️ شاشة الكاشير (POS) */}
           <Route path="/cashier/*" element={<CashierApp />} />

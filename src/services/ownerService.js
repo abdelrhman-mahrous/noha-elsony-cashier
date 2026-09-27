@@ -377,6 +377,29 @@ export async function getComplaints({ limit = 50, offset = 0 }) {
   return []
 }
 
+export async function updateComplaintStatus({ id, status, resolution_notes = null }) {
+  try {
+    const updateData = { status, updated_at: new Date().toISOString() }
+    if (resolution_notes) updateData.resolution_notes = resolution_notes
+    const { error } = await supabase
+      .from('user_complaints')
+      .update(updateData)
+      .eq('id', id)
+    if (error) throw error
+  } catch (err) {
+    try {
+      const { error } = await supabase
+        .from('customer_support')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', id)
+      if (error) throw error
+    } catch (e2) {
+      console.warn('updateComplaintStatus error:', e2.message)
+      throw e2
+    }
+  }
+}
+
 // ── العروض والخدمات ────────────────────────────────────────────────
 
 export async function getAllOffers() {

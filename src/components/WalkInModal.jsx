@@ -169,36 +169,85 @@ export default function WalkInModal({ onClose, onSuccess }) {
     })
   }
 
-  // Re-calculate prices of selected services when offer changes
+  // Re-calculate prices and auto-select covered services when offer changes
   function handleSelectOffer(offer) {
-    const newOffer = (selectedOffer?.id === offer.id) ? null : offer
+    const isDeselecting = selectedOffer?.id === offer.id
+    const newOffer = isDeselecting ? null : offer
     setSelectedOffer(newOffer)
 
-    setSelectedServices(prev => {
-      const next = {}
-      for (const [id, item] of Object.entries(prev)) {
-        let newUnitPrice = item.price || 0
-        if (newOffer) {
-          const targets = newOffer.service_offer_targets || []
-          const itemIds = new Set(targets.filter(t => t.target_type === 'item').map(t => t.target_id))
-          const groupIds = new Set(targets.filter(t => t.target_type === 'group').map(t => t.target_id))
-          const catIds = new Set(targets.filter(t => t.target_type === 'category').map(t => t.target_id))
+    if (newOffer) {
+      const targets = newOffer.service_offer_targets || []
+      const itemIds = new Set(targets.filter(t => t.target_type === 'item').map(t => t.target_id))
+      const groupIds = new Set(targets.filter(t => t.target_type === 'group').map(t => t.target_id))
+      const catIds = new Set(targets.filter(t => t.target_type === 'category').map(t => t.target_id))
+      const isGeneral = (itemIds.size === 0 && groupIds.size === 0 && catIds.size === 0)
 
-          const isCovered = (itemIds.size === 0 && groupIds.size === 0 && catIds.size === 0) ||
-            itemIds.has(item.id) || groupIds.has(item.groupId) || catIds.has(item.catId)
+      const autoSelected = {}
+      let firstCatId = null
 
+      categoriesTree.forEach(cat => {
+        const catMatch = catIds.has(cat.id)
+        ;(cat.groups || []).forEach(group => {
+          const groupMatch = groupIds.has(group.id)
+          ;(group.items || []).forEach(item => {
+            const itemMatch = itemIds.has(item.id)
+            const isCovered = isGeneral || catMatch || groupMatch || itemMatch
+
+            if (!isGeneral && isCovered) {
+              if (!firstCatId) firstCatId = cat.id
+              let unitPrice = item.price || 0
+              if (item.price > 0) {
+                const val = Number(newOffer.discount_value) || 0
+                const type = newOffer.discount_type || 'percentage'
+                if (type === 'percentage') unitPrice = Math.max(0, item.price - (item.price * val / 100))
+                else if (type === 'fixed') unitPrice = Math.max(0, item.price - val)
+                else if (type === 'fixed_package') unitPrice = Math.min(item.price, val)
+              }
+              autoSelected[item.id] = {
+                ...item,
+                groupId: group.id,
+                catId: cat.id,
+                originalUnitPrice: item.price || 0,
+                unitPrice,
+                quantity: 1,
+              }
+            }
+          })
+        })
+      })
+
+      if (firstCatId) {
+        setActiveCategoryId(firstCatId)
+      }
+
+      setSelectedServices(prev => {
+        const next = { ...autoSelected, ...prev }
+        for (const [id, item] of Object.entries(next)) {
+          const isCovered = isGeneral || itemIds.has(item.id) || groupIds.has(item.groupId) || catIds.has(item.catId)
+          let unitPrice = item.price || 0
           if (isCovered && item.price > 0) {
             const val = Number(newOffer.discount_value) || 0
             const type = newOffer.discount_type || 'percentage'
-            if (type === 'percentage') newUnitPrice = Math.max(0, item.price - (item.price * val / 100))
-            else if (type === 'fixed') newUnitPrice = Math.max(0, item.price - val)
-            else if (type === 'fixed_package') newUnitPrice = Math.min(item.price, val)
+            if (type === 'percentage') unitPrice = Math.max(0, item.price - (item.price * val / 100))
+            else if (type === 'fixed') unitPrice = Math.max(0, item.price - val)
+            else if (type === 'fixed_package') unitPrice = Math.min(item.price, val)
           }
+          next[id] = { ...item, unitPrice }
         }
-        next[id] = { ...item, unitPrice: newUnitPrice }
-      }
-      return next
-    })
+        return next
+      })
+
+      showToast(`تم تفعيل العرض: ${newOffer.title_ar || newOffer.title}`, 'success')
+    } else {
+      setSelectedServices(prev => {
+        const next = {}
+        for (const [id, item] of Object.entries(prev)) {
+          next[id] = { ...item, unitPrice: item.price || 0 }
+        }
+        return next
+      })
+      showToast('تم إلغاء تحديد العرض', 'info')
+    }
   }
 
   // ─── Financial Calculations ───────────────────────────────────────────────

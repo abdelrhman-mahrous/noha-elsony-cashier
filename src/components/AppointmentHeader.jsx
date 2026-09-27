@@ -8,6 +8,23 @@ export default function AppointmentHeader({ details }) {
     } catch { return dateStr }
   }
 
+  function formatTime(timeStr) {
+    if (!timeStr) return ''
+    try {
+      const parts = timeStr.trim().split(':')
+      if (parts.length >= 2) {
+        let hour = parseInt(parts[0], 10)
+        const minute = parts[1].padStart(2, '0')
+        const period = hour >= 12 ? 'مساءً' : 'صباحاً'
+        hour = hour % 12 || 12
+        return `${hour}:${minute} ${period}`
+      }
+      return timeStr
+    } catch {
+      return timeStr
+    }
+  }
+
   const statusLabel = {
     pending:   { text: 'في الانتظار', cls: 'badge--warning' },
     confirmed: { text: 'مؤكد',        cls: 'badge--info' },
@@ -35,7 +52,7 @@ export default function AppointmentHeader({ details }) {
         {details.customerPhone && <span>📱 {details.customerPhone}</span>}
         {details.barberName && <span>💇‍♀️ {details.barberName}</span>}
         <span>📅 {formatDate(details.appointmentDate)}</span>
-        {details.appointmentTime && <span>🕐 {details.appointmentTime}</span>}
+        {details.appointmentTime && <span>🕐 {formatTime(details.appointmentTime)}</span>}
         {details.depositPaid > 0 && (
           <span style={{ color: '#ffd1e8' }}>💰 عربون: {details.depositPaid} جنيه</span>
         )}

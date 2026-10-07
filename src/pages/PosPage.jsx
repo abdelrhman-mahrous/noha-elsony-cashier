@@ -16,6 +16,9 @@ import Calculator from '../components/Calculator'
 import PriceEditModal from '../components/PriceEditModal'
 import CancelReasonModal from '../components/CancelReasonModal'
 import WalkInModal from '../components/WalkInModal'
+import AddBuffetItemModal from '../components/AddBuffetItemModal'
+import AddProductItemModal from '../components/AddProductItemModal'
+import AddServiceItemModal from '../components/AddServiceItemModal'
 
 export default function PosPage() {
   const navigate = useNavigate()
@@ -26,11 +29,14 @@ export default function PosPage() {
   const [saving, setSaving] = useState(false)
   const [details, setDetails] = useState(null)
   const [paidAmount, setPaidAmount] = useState(0)
+  const [tip, setTip] = useState(0)
   const [notes, setNotes] = useState('')
-  const [countExtraAsTip, setCountExtraAsTip] = useState(true)
 
   // Modals
   const [walkInOpen, setWalkInOpen] = useState(false)
+  const [addServiceOpen, setAddServiceOpen] = useState(false)
+  const [addBuffetOpen, setAddBuffetOpen] = useState(false)
+  const [addProductOpen, setAddProductOpen] = useState(false)
   const [editModal, setEditModal] = useState(null) // { index, item }
   const [cancelItemModal, setCancelItemModal] = useState(null) // { index, item }
   const [cancelApptModal, setCancelApptModal] = useState(false)
@@ -68,6 +74,7 @@ export default function PosPage() {
         ? found.paidAmount
         : netCashDue(found)
       setPaidAmount(initialPaid)
+      setTip(found.tipAmount || 0)
       setNotes(found.cashierNotes || '')
     } catch (err) {
       showToast(err.message || 'حدث خطأ أثناء البحث', 'error')
@@ -85,19 +92,13 @@ export default function PosPage() {
   function deliveredSubtotal(det) {
     return (det?.items || [])
       .filter(i => i.status === 'delivered')
-      .reduce((s, i) => s + i.unitPrice * i.quantity, 0)
+      .reduce((s, i) => s + i.unitPrice * (i.quantity || 1), 0)
   }
 
   function netCashDue(det) {
     const due = deliveredSubtotal(det) - (det?.depositPaid || 0)
     return due < 0 ? 0 : due
   }
-
-  const tip = (() => {
-    if (!details) return 0
-    const diff = paidAmount - netCashDue(details)
-    return diff > 0 && countExtraAsTip ? diff : 0
-  })()
 
   // ══ Toggle خدمة: delivered ↔ cancelled ══
   function handleToggleItem(index) {
@@ -139,6 +140,29 @@ export default function PosPage() {
     setDetails(updated)
     setPaidAmount(netCashDue(updated))
     setEditModal(null)
+  }
+
+  // ══ تحديث الكمية ══
+  function handleQuantityChange(index, newQty) {
+    if (!details || details.status === 'completed') return
+    const updatedItems = [...details.items]
+    updatedItems[index] = {
+      ...updatedItems[index],
+      quantity: Math.max(1, newQty),
+    }
+    const updated = { ...details, items: updatedItems }
+    setDetails(updated)
+    setPaidAmount(netCashDue(updated))
+  }
+
+  // ══ إضافة بند جديد للموعد (بوفيه أو منتج) ══
+  function handleAddNewItem(newItem) {
+    if (!details || details.status === 'completed') return
+    const updatedItems = [...details.items, newItem]
+    const updated = { ...details, items: updatedItems }
+    setDetails(updated)
+    setPaidAmount(netCashDue(updated))
+    showToast(`تمت إضافة ${newItem.title} للموعد بنجاح`, 'success')
   }
 
   // ══ إتمام المحاسبة ══
@@ -186,10 +210,14 @@ export default function PosPage() {
     }
   }
 
-  // تقسيم العناصر لخدمات ومنتجات
+  // تقسيم العناصر لخدمات وبوفيه/إضافات ومنتجات
   const serviceItems = details?.items
     .map((item, i) => ({ item, i }))
-    .filter(({ item }) => item.itemType !== 'product') || []
+    .filter(({ item }) => item.itemType !== 'product' && item.itemType !== 'addon') || []
+
+  const addonItems = details?.items
+    .map((item, i) => ({ item, i }))
+    .filter(({ item }) => item.itemType === 'addon') || []
 
   const productItems = details?.items
     .map((item, i) => ({ item, i }))
@@ -197,11 +225,15 @@ export default function PosPage() {
 
   const servicesTotalDelivered = serviceItems
     .filter(({ item }) => item.status === 'delivered')
-    .reduce((s, { item }) => s + item.unitPrice * item.quantity, 0)
+    .reduce((s, { item }) => s + item.unitPrice * (item.quantity || 1), 0)
+
+  const addonsTotalDelivered = addonItems
+    .filter(({ item }) => item.status === 'delivered')
+    .reduce((s, { item }) => s + item.unitPrice * (item.quantity || 1), 0)
 
   const productsTotalDelivered = productItems
     .filter(({ item }) => item.status === 'delivered')
-    .reduce((s, { item }) => s + item.unitPrice * item.quantity, 0)
+    .reduce((s, { item }) => s + item.unitPrice * (item.quantity || 1), 0)
 
   const isLocked = details?.status === 'completed' || details?.status === 'cancelled'
 
@@ -286,11 +318,23 @@ export default function PosPage() {
               icon="💇‍♀️"
               count={serviceItems.length}
               deliveredTotal={servicesTotalDelivered}
+              onAdd={!isLocked ? () => setAddServiceOpen(true) : null}
+              addLabel="إضافة خدمة من القائمة"
             />
 
             {serviceItems.length === 0 ? (
               <div className="empty-state" style={{ padding: '20px' }}>
                 <div className="empty-state__text">لا توجد خدمات مسجلة بهذا الموعد</div>
+                {!isLocked && (
+                  <button
+                    type="button"
+                    className="btn btn--sm btn--primary"
+                    style={{ marginTop: 8 }}
+                    onClick={() => setAddServiceOpen(true)}
+                  >
+                    ➕ إضافة خدمة من القائمة الآن
+                  </button>
+                )}
               </div>
             ) : (
               serviceItems.map(({ item, i }) => (
@@ -300,6 +344,47 @@ export default function PosPage() {
                   locked={isLocked}
                   onToggle={() => handleToggleItem(i)}
                   onEditPrice={() => setEditModal({ index: i, item })}
+                  onQuantityChange={(newQty) => handleQuantityChange(i, newQty)}
+                />
+              ))
+            )}
+
+            {/* خدمات البوفيه والإضافات */}
+            <div className="divider" />
+            <GroupHeader
+              title="خدمات البوفيه والمشروبات"
+              icon="☕"
+              count={addonItems.length}
+              deliveredTotal={addonsTotalDelivered}
+              accentColor="#d97706"
+              onAdd={!isLocked ? () => setAddBuffetOpen(true) : null}
+              addLabel="إضافة بوفيه / مشروب"
+            />
+            {addonItems.length === 0 ? (
+              <div className="empty-state" style={{ padding: '16px' }}>
+                <div className="empty-state__text" style={{ fontSize: '0.86rem' }}>
+                  لا توجد طلبات بوفيه مسجلة بهذا الموعد
+                </div>
+                {!isLocked && (
+                  <button
+                    type="button"
+                    className="btn btn--sm btn--secondary"
+                    style={{ marginTop: 8, color: '#d97706', borderColor: '#d97706' }}
+                    onClick={() => setAddBuffetOpen(true)}
+                  >
+                    ➕ إضافة طلب بوفيه الآن
+                  </button>
+                )}
+              </div>
+            ) : (
+              addonItems.map(({ item, i }) => (
+                <ItemCard
+                  key={item.id + i}
+                  item={item}
+                  locked={isLocked}
+                  onToggle={() => handleToggleItem(i)}
+                  onEditPrice={() => setEditModal({ index: i, item })}
+                  onQuantityChange={(newQty) => handleQuantityChange(i, newQty)}
                 />
               ))
             )}
@@ -313,11 +398,25 @@ export default function PosPage() {
               count={productItems.length}
               deliveredTotal={productsTotalDelivered}
               accentColor="#f97316"
+              onAdd={!isLocked ? () => setAddProductOpen(true) : null}
+              addLabel="إضافة منتج من المخزن"
             />
 
             {productItems.length === 0 ? (
-              <div className="empty-state" style={{ padding: '20px' }}>
-                <div className="empty-state__text">لا توجد منتجات مرفقة بهذا الموعد</div>
+              <div className="empty-state" style={{ padding: '16px' }}>
+                <div className="empty-state__text" style={{ fontSize: '0.86rem' }}>
+                  لا توجد منتجات مرفقة بهذا الموعد
+                </div>
+                {!isLocked && (
+                  <button
+                    type="button"
+                    className="btn btn--sm btn--secondary"
+                    style={{ marginTop: 8, color: '#f97316', borderColor: '#f97316' }}
+                    onClick={() => setAddProductOpen(true)}
+                  >
+                    ➕ إضافة منتج الآن
+                  </button>
+                )}
               </div>
             ) : (
               productItems.map(({ item, i }) => (
@@ -327,6 +426,7 @@ export default function PosPage() {
                   locked={isLocked}
                   onToggle={() => handleToggleItem(i)}
                   onEditPrice={() => setEditModal({ index: i, item })}
+                  onQuantityChange={(newQty) => handleQuantityChange(i, newQty)}
                 />
               ))
             )}
@@ -343,11 +443,10 @@ export default function PosPage() {
           details={details}
           paidAmount={paidAmount}
           tip={tip}
-          countExtraAsTip={countExtraAsTip}
           notes={notes}
           saving={saving}
           onPaidChange={setPaidAmount}
-          onToggleTip={setCountExtraAsTip}
+          onTipChange={setTip}
           onNotesChange={setNotes}
           onCheckout={handleCheckout}
           onCancelAppt={() => setCancelApptModal(true)}
@@ -361,6 +460,30 @@ export default function PosPage() {
           details={details}
           onConfirm={(newPrice, orig) => handlePriceUpdate(editModal.index, newPrice, orig)}
           onClose={() => setEditModal(null)}
+        />
+      )}
+
+      {/* Add Service Item Modal */}
+      {addServiceOpen && (
+        <AddServiceItemModal
+          onAdd={handleAddNewItem}
+          onClose={() => setAddServiceOpen(false)}
+        />
+      )}
+
+      {/* Add Buffet Item Modal */}
+      {addBuffetOpen && (
+        <AddBuffetItemModal
+          onAdd={handleAddNewItem}
+          onClose={() => setAddBuffetOpen(false)}
+        />
+      )}
+
+      {/* Add Product Item Modal */}
+      {addProductOpen && (
+        <AddProductItemModal
+          onAdd={handleAddNewItem}
+          onClose={() => setAddProductOpen(false)}
         />
       )}
 
@@ -392,3 +515,4 @@ export default function PosPage() {
     </>
   )
 }
+

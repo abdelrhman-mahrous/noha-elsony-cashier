@@ -113,6 +113,28 @@ export default function LoginPage() {
               'تسجيل الدخول'
             )}
           </button>
+
+          <div style={{ marginTop: '16px', textAlign: 'center', borderTop: '1px solid var(--border)', paddingTop: '16px' }}>
+            <a
+              href="#/demo/cashier"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 18px',
+                background: '#FAF5F8',
+                color: '#8E3A59',
+                borderRadius: '10px',
+                textDecoration: 'none',
+                fontWeight: '800',
+                fontSize: '13px',
+                border: '1px solid #F0DEE7',
+                transition: 'all 0.2s',
+              }}
+            >
+              ✨ تجربة كاشير ديمو بداتا وهمية (بدون تسجيل)
+            </a>
+          </div>
         </form>
       </div>
     </div>

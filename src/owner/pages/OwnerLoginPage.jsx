@@ -174,6 +174,28 @@ export default function OwnerLoginPage() {
           >
             {loading ? 'جارٍ التحقق...' : 'تسجيل الدخول الملكي'}
           </button>
+
+          <div style={{ marginTop: '16px', textAlign: 'center', borderTop: '1px solid #EFE2DC', paddingTop: '16px' }}>
+            <a
+              href="#/demo/owner"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 18px',
+                background: '#FAF5F8',
+                color: '#7D2E46',
+                borderRadius: '10px',
+                textDecoration: 'none',
+                fontWeight: '800',
+                fontSize: '13px',
+                border: '1px solid #F0DEE7',
+                transition: 'all 0.2s',
+              }}
+            >
+              👑 تجربة لوحة الأونر بداتا وهمية (ديمو فوري)
+            </a>
+          </div>
         </form>
       </div>
     </div>

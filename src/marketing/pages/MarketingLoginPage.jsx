@@ -192,6 +192,28 @@ export default function MarketingLoginPage() {
               <span>تسجيل الدخول للبوابة 💎</span>
             )}
           </button>
+
+          <div style={{ marginTop: '16px', textAlign: 'center', borderTop: '1px solid #F0DEE7', paddingTop: '16px' }}>
+            <a
+              href="#/demo/marketing"
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '8px',
+                padding: '10px 18px',
+                background: '#FAF5F8',
+                color: '#8E3A59',
+                borderRadius: '10px',
+                textDecoration: 'none',
+                fontWeight: '800',
+                fontSize: '13px',
+                border: '1px solid #F0DEE7',
+                transition: 'all 0.2s',
+              }}
+            >
+              🏷️ تجربة لوحة التسويق بداتا وهمية (ديمو فوري)
+            </a>
+          </div>
         </form>
 
         <div style={{

@@ -6,6 +6,7 @@ const NAV_LINKS = [
   { to: '/owner',           label: 'الرئيسية' },
   { to: '/owner/tasks',     label: 'توزيع المهام' },
   { to: '/owner/products',  label: 'المخزن والمنتجات' },
+  { to: '/owner/buffet',    label: '☕ البوفيه والمشروبات' },
   { to: '/owner/financials',label: 'الحسابات والمالية' },
   { to: '/owner/team',      label: 'طاقم العمل' },
   { to: '/owner/offers',    label: 'العروض' },

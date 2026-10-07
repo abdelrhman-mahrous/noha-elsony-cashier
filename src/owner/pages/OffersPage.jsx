@@ -49,6 +49,7 @@ function OfferFormModal({ offer, selectionData, onSave, onClose, saving }) {
   const [localFile, setLocalFile] = useState(null)
   const [localPreview, setLocalPreview] = useState(null)
   const [uploading, setUploading] = useState(false)
+  const [searchTerm, setSearchTerm] = useState('')
   const [expandedSections, setExpandedSections] = useState({
     services: true,
     products: true,
@@ -124,6 +125,67 @@ function OfferFormModal({ offer, selectionData, onSave, onClose, saving }) {
     })
   }
 
+  function toggleSelectAllInGroup(grp) {
+    const items = grp.items || []
+    if (items.length === 0) return
+    const allSelected = items.every((it) => !!customTargets[`item:${it.id}`])
+    setCustomTargets((prev) => {
+      const next = { ...prev }
+      items.forEach((it) => {
+        const k = `item:${it.id}`
+        if (allSelected) {
+          delete next[k]
+        } else {
+          next[k] = { target_type: 'item', target_id: it.id, discount_type: null, discount_value: null }
+        }
+      })
+      return next
+    })
+  }
+
+  function toggleSelectAllInCategory(cat) {
+    const allItems = []
+    ;(cat.groups || []).forEach((g) => {
+      ;(g.items || []).forEach((it) => allItems.push(it))
+    })
+    if (allItems.length === 0) {
+      toggleTarget('category', cat.id)
+      return
+    }
+    const allSelected = allItems.every((it) => !!customTargets[`item:${it.id}`])
+    setCustomTargets((prev) => {
+      const next = { ...prev }
+      allItems.forEach((it) => {
+        const k = `item:${it.id}`
+        if (allSelected) {
+          delete next[k]
+        } else {
+          next[k] = { target_type: 'item', target_id: it.id, discount_type: null, discount_value: null }
+        }
+      })
+      return next
+    })
+  }
+
+  function expandAll() {
+    const cats = {}
+    const grps = {}
+    tree.forEach((c) => {
+      cats[c.id] = true
+      ;(c.groups || []).forEach((g) => {
+        grps[g.id] = true
+      })
+    })
+    setOpenCats(cats)
+    setOpenGroups(grps)
+    setExpandedSections({ services: true, products: true, bundles: true })
+  }
+
+  function collapseAll() {
+    setOpenCats({})
+    setOpenGroups({})
+  }
+
   function saveCustomDiscount(targetKey, discountType, discountValue) {
     setCustomTargets((prev) => {
       const current = prev[targetKey]
@@ -171,22 +233,62 @@ function OfferFormModal({ offer, selectionData, onSave, onClose, saving }) {
   const displayImage = localPreview || form.image_url
   const { tree = [], products = [], bundles = [] } = selectionData || {}
 
+  // Filtered lists based on search
+  const q = searchTerm.trim().toLowerCase()
+
+  const filteredProducts = products.filter((p) => !q || (p.name && p.name.toLowerCase().includes(q)))
+  const filteredBundles = bundles.filter((b) => !q || (b.name && b.name.toLowerCase().includes(q)))
+
+  const filteredTree = tree
+    .map((cat) => {
+      const catMatches = !q || (cat.name_ar && cat.name_ar.toLowerCase().includes(q))
+      const matchedGroups = (cat.groups || [])
+        .map((grp) => {
+          const grpMatches = !q || (grp.name_ar && grp.name_ar.toLowerCase().includes(q))
+          const matchedItems = (grp.items || []).filter(
+            (item) => !q || catMatches || grpMatches || (item.name_ar && item.name_ar.toLowerCase().includes(q))
+          )
+          if (grpMatches || matchedItems.length > 0 || catMatches) {
+            return { ...grp, items: matchedItems }
+          }
+          return null
+        })
+        .filter(Boolean)
+
+      if (catMatches || matchedGroups.length > 0) {
+        return { ...cat, groups: matchedGroups }
+      }
+      return null
+    })
+    .filter(Boolean)
+
+  const selectedCount = Object.keys(customTargets).length
+
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
         className="modal"
-        style={{ maxWidth: '780px', width: '100%', maxHeight: '92vh', overflowY: 'auto', padding: '24px' }}
+        style={{
+          maxWidth: '860px',
+          width: '95%',
+          maxHeight: '92vh',
+          display: 'flex',
+          flexDirection: 'column',
+          padding: 0,
+          overflow: 'hidden',
+          borderRadius: '20px',
+        }}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="modal-header">
+        <div className="modal-header" style={{ padding: '20px 24px 16px', margin: 0, borderBottom: '1px solid var(--staff-border)' }}>
           <h2 className="modal-title">{offer ? '✏️ تعديل العرض الترويجي' : '🏷️ إضافة عرض ترويجي جديد'}</h2>
           <button className="modal-close-btn" onClick={onClose} disabled={isBusy}>
             ✕
           </button>
         </div>
 
-        <form onSubmit={handleSubmit}>
-          <div className="modal-body" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1, overflow: 'hidden' }}>
+          <div className="modal-body" style={{ flex: 1, overflowY: 'auto', padding: '20px 24px', display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {/* 1. البيانات الأساسية */}
             <div style={{ background: 'var(--staff-bg)', padding: '16px', borderRadius: '12px', border: '1px solid var(--staff-border)' }}>
               <div style={{ fontWeight: '800', color: 'var(--staff-ink)', marginBottom: '12px', fontSize: '15px' }}>
@@ -202,7 +304,7 @@ function OfferFormModal({ offer, selectionData, onSave, onClose, saving }) {
                   type="text"
                   value={form.title_ar}
                   onChange={(e) => set('title_ar', e.target.value)}
-                  placeholder="مثال: باقة العناية الشاملة الملكية أو خصم على منتجات العناية"
+                  placeholder="مثال: باقة العناية الشاملة الملكية أو خصم على منتجات الشعر"
                   required
                   disabled={isBusy}
                 />
@@ -364,243 +466,79 @@ function OfferFormModal({ offer, selectionData, onSave, onClose, saving }) {
             </div>
 
             {/* 4. المنتجات والخدمات المستهدفة بالعرض */}
-            <div style={{ background: '#FFFFFF', padding: '16px', borderRadius: '12px', border: '1.5px solid var(--staff-border)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                <div style={{ fontWeight: '800', color: 'var(--staff-ink)', fontSize: '15px' }}>
-                  4. المنتجات والخدمات المستهدفة بالعرض ({Object.keys(customTargets).length} محددة)
+            <div style={{ background: '#FFFFFF', padding: '16px', borderRadius: '14px', border: '1.5px solid var(--staff-border)', boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px', marginBottom: '8px' }}>
+                <div style={{ fontWeight: '800', color: 'var(--staff-ink)', fontSize: '15.5px' }}>
+                  4. المنتجات والخدمات المستهدفة بالعرض
+                </div>
+                <div style={{ background: selectedCount > 0 ? 'var(--staff-rose-dark)' : '#eee', color: selectedCount > 0 ? '#fff' : '#666', padding: '4px 12px', borderRadius: '20px', fontSize: '12.5px', fontWeight: 'bold' }}>
+                  {selectedCount > 0 ? `✨ تم تحديد ${selectedCount} عنصر` : 'لم يتم تحديد أي عنصر بعد'}
                 </div>
               </div>
+
               <p style={{ fontSize: '12.5px', color: 'var(--staff-muted)', margin: '0 0 14px' }}>
                 حددي المنتجات أو الخدمات المشمولة بالعرض. يمكنك الضغط على أيقونة القلم ✏️ لتحديد خصم مخصص لأي منتج أو خدمة بعينها.
               </p>
 
-              {/* ── أ) قسم المنتجات ── */}
-              <div style={{ border: '1px solid var(--staff-border)', borderRadius: '10px', marginBottom: '12px', overflow: 'hidden' }}>
-                <div
-                  onClick={() => setExpandedSections((prev) => ({ ...prev, products: !prev.products }))}
-                  style={{
-                    background: 'var(--staff-bg)',
-                    padding: '12px 14px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    fontSize: '14px',
-                  }}
-                >
-                  <span>🛍️ منتجات الصالون ({products.length} منتج متاح)</span>
-                  <span>{expandedSections.products ? '▲' : '▼'}</span>
+              {/* شريط البحث السريع والتحكم */}
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap', marginBottom: '14px' }}>
+                <div style={{ flex: 1, minWidth: '220px', position: 'relative' }}>
+                  <input
+                    type="text"
+                    className="input"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="🔍 ابحث في الخدمات، الأقسام، أو المنتجات..."
+                    style={{ padding: '8px 12px', fontSize: '13px' }}
+                  />
+                  {searchTerm && (
+                    <button
+                      type="button"
+                      onClick={() => setSearchTerm('')}
+                      style={{
+                        position: 'absolute',
+                        left: '10px',
+                        top: '50%',
+                        transform: 'translateY(-50%)',
+                        background: 'none',
+                        border: 'none',
+                        cursor: 'pointer',
+                        color: 'var(--staff-muted)',
+                        fontWeight: 'bold',
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
 
-                {expandedSections.products && (
-                  <div style={{ padding: '12px', maxHeight: '240px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                    {products.length === 0 ? (
-                      <div style={{ fontSize: '13px', color: 'var(--staff-muted)' }}>لا توجد منتجات مسجلة</div>
-                    ) : (
-                      products.map((p) => {
-                        const key = `product:${p.id}`
-                        const isSelected = !!customTargets[key]
-                        const custom = customTargets[key]
-                        const hasCustom = custom && custom.discount_value > 0
-
-                        return (
-                          <div
-                            key={p.id}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              padding: '8px 10px',
-                              borderRadius: '8px',
-                              background: isSelected ? '#FAF0F4' : '#fff',
-                              border: isSelected ? '1px solid var(--staff-rose)' : '1px solid var(--staff-border)',
-                            }}
-                          >
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', flex: 1, margin: 0 }}>
-                              <input
-                                type="checkbox"
-                                checked={isSelected}
-                                onChange={() => toggleTarget('product', p.id)}
-                              />
-                              <div>
-                                <span style={{ fontWeight: '600', fontSize: '13.5px', color: 'var(--staff-ink)' }}>{p.name}</span>
-                                {p.price && <span style={{ fontSize: '12px', color: 'var(--staff-muted)', marginRight: '6px' }}>({p.price} ج)</span>}
-                              </div>
-                            </label>
-
-                            {isSelected && (
-                              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                <span style={{ fontSize: '11.5px', color: hasCustom ? 'var(--staff-rose-dark)' : 'var(--staff-muted)', fontWeight: hasCustom ? 'bold' : 'normal' }}>
-                                  {hasCustom ? `خصم: ${custom.discount_value} ${custom.discount_type === 'fixed' ? 'جنيه' : '%'}` : 'خصم عام'}
-                                </span>
-                                <button
-                                  type="button"
-                                  className="btn btn--sm btn--secondary"
-                                  style={{ padding: '2px 8px', fontSize: '11px' }}
-                                  title="تخصيص الخصم لهذا المنتج"
-                                  onClick={() => setCustomDiscountDialog({ key, name: p.name, current: custom })}
-                                >
-                                  ✏️
-                                </button>
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })
-                    )}
-                  </div>
-                )}
-              </div>
-
-              {/* ── ب) قسم الخدمات والأقسام ── */}
-              <div style={{ border: '1px solid var(--staff-border)', borderRadius: '10px', marginBottom: '12px', overflow: 'hidden' }}>
-                <div
-                  onClick={() => setExpandedSections((prev) => ({ ...prev, services: !prev.services }))}
-                  style={{
-                    background: 'var(--staff-bg)',
-                    padding: '12px 14px',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
-                    fontSize: '14px',
-                  }}
-                >
-                  <span>✂️ أقسام وخدمات الصالون ({tree.length} قسم)</span>
-                  <span>{expandedSections.services ? '▲' : '▼'}</span>
+                <div style={{ display: 'flex', gap: '6px' }}>
+                  <button
+                    type="button"
+                    className="btn btn--secondary btn--sm"
+                    style={{ padding: '7px 12px', fontSize: '12px' }}
+                    onClick={expandAll}
+                  >
+                    توسيع الكل ▾
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn--secondary btn--sm"
+                    style={{ padding: '7px 12px', fontSize: '12px' }}
+                    onClick={collapseAll}
+                  >
+                    طي الكل ▴
+                  </button>
                 </div>
-
-                {expandedSections.services && (
-                  <div style={{ padding: '12px', maxHeight: '320px', overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                    {tree.map((cat) => {
-                      const catKey = `category:${cat.id}`
-                      const isCatSelected = !!customTargets[catKey]
-                      const isCatOpen = !!openCats[cat.id]
-
-                      return (
-                        <div key={cat.id} style={{ border: '1px solid var(--staff-border)', borderRadius: '8px', overflow: 'hidden' }}>
-                          <div
-                            style={{
-                              background: '#FDF7E7',
-                              padding: '8px 12px',
-                              display: 'flex',
-                              justifyContent: 'space-between',
-                              alignItems: 'center',
-                            }}
-                          >
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
-                              <input
-                                type="checkbox"
-                                checked={isCatSelected}
-                                onChange={() => toggleTarget('category', cat.id)}
-                              />
-                              <span style={{ fontWeight: 'bold', fontSize: '13.5px' }}>قسم: {cat.name_ar}</span>
-                            </label>
-                            <button
-                              type="button"
-                              onClick={() => setOpenCats((prev) => ({ ...prev, [cat.id]: !prev[cat.id] }))}
-                              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px' }}
-                            >
-                              {isCatOpen ? '▲ إخفاء الخدمات' : '▼ عرض الخدمات'}
-                            </button>
-                          </div>
-
-                          {isCatOpen && (
-                            <div style={{ padding: '8px 12px', background: '#fff' }}>
-                              {(cat.groups || []).map((grp) => {
-                                const grpKey = `group:${grp.id}`
-                                const isGrpSelected = !!customTargets[grpKey]
-                                const isGrpOpen = !!openGroups[grp.id]
-
-                                return (
-                                  <div key={grp.id} style={{ marginBottom: '6px', borderRight: '2px solid var(--staff-rose)', paddingRight: '8px' }}>
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '4px 0' }}>
-                                      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
-                                        <input
-                                          type="checkbox"
-                                          checked={isGrpSelected}
-                                          onChange={() => toggleTarget('group', grp.id)}
-                                        />
-                                        <span style={{ fontWeight: '600', fontSize: '13px' }}>مجموعة: {grp.name_ar}</span>
-                                      </label>
-                                      <button
-                                        type="button"
-                                        onClick={() => setOpenGroups((prev) => ({ ...prev, [grp.id]: !prev[grp.id] }))}
-                                        style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '11px', color: 'var(--staff-muted)' }}
-                                      >
-                                        {isGrpOpen ? '▲' : '▼'}
-                                      </button>
-                                    </div>
-
-                                    {isGrpOpen && (
-                                      <div style={{ paddingRight: '14px', display: 'flex', flexDirection: 'column', gap: '4px', marginTop: '4px' }}>
-                                        {(grp.items || []).map((item) => {
-                                          const itemKey = `item:${item.id}`
-                                          const isItemSelected = !!customTargets[itemKey]
-                                          const itemCustom = customTargets[itemKey]
-                                          const hasCustom = itemCustom && itemCustom.discount_value > 0
-
-                                          return (
-                                            <div
-                                              key={item.id}
-                                              style={{
-                                                display: 'flex',
-                                                alignItems: 'center',
-                                                justifyContent: 'space-between',
-                                                padding: '4px 6px',
-                                                borderRadius: '6px',
-                                                background: isItemSelected ? '#FAF0F4' : 'var(--staff-bg)',
-                                              }}
-                                            >
-                                              <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
-                                                <input
-                                                  type="checkbox"
-                                                  checked={isItemSelected}
-                                                  onChange={() => toggleTarget('item', item.id)}
-                                                />
-                                                <span style={{ fontSize: '12.5px' }}>{item.name_ar} ({item.price || item.min_price || 0} ج)</span>
-                                              </label>
-                                              {isItemSelected && (
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-                                                  <span style={{ fontSize: '11px', color: hasCustom ? 'var(--staff-rose-dark)' : 'var(--staff-muted)', fontWeight: hasCustom ? 'bold' : 'normal' }}>
-                                                    {hasCustom ? `خصم: ${itemCustom.discount_value} ${itemCustom.discount_type === 'fixed' ? 'جنيه' : '%'}` : 'خصم عام'}
-                                                  </span>
-                                                  <button
-                                                    type="button"
-                                                    className="btn btn--sm btn--secondary"
-                                                    style={{ padding: '1px 6px', fontSize: '10px' }}
-                                                    onClick={() => setCustomDiscountDialog({ key: itemKey, name: item.name_ar, current: itemCustom })}
-                                                  >
-                                                    ✏️
-                                                  </button>
-                                                </div>
-                                              )}
-                                            </div>
-                                          )
-                                        })}
-                                      </div>
-                                    )}
-                                  </div>
-                                )
-                              })}
-                            </div>
-                          )}
-                        </div>
-                      )
-                    })}
-                  </div>
-                )}
               </div>
 
-              {/* ── ج) قسم الباقات (Bundles) ── */}
-              {bundles.length > 0 && (
-                <div style={{ border: '1px solid var(--staff-border)', borderRadius: '10px', overflow: 'hidden' }}>
+              <div className="offer-target-tree-container">
+                {/* ── أ) قسم الخدمات والأقسام ── */}
+                <div style={{ border: '1px solid var(--staff-border)', borderRadius: '12px', marginBottom: '14px', overflow: 'hidden' }}>
                   <div
-                    onClick={() => setExpandedSections((prev) => ({ ...prev, bundles: !prev.bundles }))}
+                    onClick={() => setExpandedSections((prev) => ({ ...prev, services: !prev.services }))}
                     style={{
-                      background: 'var(--staff-bg)',
+                      background: 'linear-gradient(135deg, #FAF2F6 0%, #F5E8F0 100%)',
                       padding: '12px 14px',
                       display: 'flex',
                       justifyContent: 'space-between',
@@ -608,36 +546,415 @@ function OfferFormModal({ offer, selectionData, onSave, onClose, saving }) {
                       cursor: 'pointer',
                       fontWeight: 'bold',
                       fontSize: '14px',
+                      borderBottom: expandedSections.services ? '1px solid var(--staff-border)' : 'none',
                     }}
                   >
-                    <span>🎁 باقات المنتجات ({bundles.length} باقة)</span>
-                    <span>{expandedSections.bundles ? '▲' : '▼'}</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span>✂️ أقسام وخدمات الصالون</span>
+                      <span style={{ fontSize: '12px', background: '#fff', padding: '2px 8px', borderRadius: '12px', color: 'var(--staff-rose-dark)', fontWeight: '700' }}>
+                        {filteredTree.length} قسم
+                      </span>
+                    </span>
+                    <span>{expandedSections.services ? '▲' : '▼'}</span>
                   </div>
 
-                  {expandedSections.bundles && (
-                    <div style={{ padding: '12px', display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                      {bundles.map((b) => {
-                        const key = `bundle:${b.id}`
-                        const isSelected = !!customTargets[key]
-                        return (
-                          <label key={b.id} style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
-                            <input
-                              type="checkbox"
-                              checked={isSelected}
-                              onChange={() => toggleTarget('bundle', b.id)}
-                            />
-                            <span style={{ fontSize: '13px' }}>{b.name}</span>
-                          </label>
-                        )
-                      })}
+                  {expandedSections.services && (
+                    <div style={{ padding: '12px' }}>
+                      {filteredTree.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '16px', color: 'var(--staff-muted)', fontSize: '13px' }}>
+                          {searchTerm ? 'لا توجد خدمات مطابقة لبحثك' : 'لا توجد أقسام خدمات مسجلة'}
+                        </div>
+                      ) : (
+                        filteredTree.map((cat) => {
+                          const catKey = `category:${cat.id}`
+                          const isCatSelected = !!customTargets[catKey]
+                          const isCatOpen = q ? true : !!openCats[cat.id]
+
+                          const totalCatItems = (cat.groups || []).reduce((acc, g) => acc + (g.items?.length || 0), 0)
+                          const selectedInCat = (cat.groups || []).reduce(
+                            (acc, g) => acc + (g.items || []).filter((it) => !!customTargets[`item:${it.id}`]).length,
+                            0
+                          )
+
+                          return (
+                            <div key={cat.id} className="offer-target-category-card">
+                              <div className="offer-target-category-header">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0 }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={isCatSelected}
+                                      onChange={() => toggleTarget('category', cat.id)}
+                                      style={{ width: '16px', height: '16px', accentColor: 'var(--staff-rose-dark)' }}
+                                    />
+                                    <span style={{ fontWeight: '800', fontSize: '14px', color: 'var(--staff-ink)' }}>
+                                      {cat.name_ar}
+                                    </span>
+                                  </label>
+
+                                  <span style={{ fontSize: '11.5px', color: 'var(--staff-muted)', background: '#fff', padding: '2px 8px', borderRadius: '8px', border: '1px solid var(--staff-border)' }}>
+                                    {cat.groups?.length || 0} مجموعات · {totalCatItems} خدمة
+                                  </span>
+
+                                  {selectedInCat > 0 && (
+                                    <span style={{ fontSize: '11px', background: 'var(--staff-rose-dark)', color: '#fff', padding: '2px 8px', borderRadius: '12px', fontWeight: 'bold' }}>
+                                      تم تحديد {selectedInCat} خدمة
+                                    </span>
+                                  )}
+
+                                  {isCatSelected && (
+                                    <span style={{ fontSize: '11px', background: '#2B7A58', color: '#fff', padding: '2px 8px', borderRadius: '12px', fontWeight: 'bold' }}>
+                                      القسم بالكامل محدد
+                                    </span>
+                                  )}
+                                </div>
+
+                                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                  <button
+                                    type="button"
+                                    onClick={() => toggleSelectAllInCategory(cat)}
+                                    style={{
+                                      background: 'none',
+                                      border: '1px solid var(--staff-border)',
+                                      borderRadius: '6px',
+                                      padding: '3px 8px',
+                                      cursor: 'pointer',
+                                      fontSize: '11px',
+                                      color: 'var(--staff-rose-dark)',
+                                      fontWeight: '600',
+                                    }}
+                                  >
+                                    {selectedInCat === totalCatItems && totalCatItems > 0 ? 'إلغاء تحديد القسم' : 'تحديد كل خدمات القسم'}
+                                  </button>
+
+                                  <button
+                                    type="button"
+                                    onClick={() => setOpenCats((prev) => ({ ...prev, [cat.id]: !prev[cat.id] }))}
+                                    style={{
+                                      background: '#fff',
+                                      border: '1px solid var(--staff-border)',
+                                      borderRadius: '6px',
+                                      padding: '3px 8px',
+                                      cursor: 'pointer',
+                                      fontSize: '11.5px',
+                                      fontWeight: '700',
+                                      color: 'var(--staff-ink)',
+                                    }}
+                                  >
+                                    {isCatOpen ? 'إخفاء ▲' : `عرض الخدمات (${totalCatItems}) ▼`}
+                                  </button>
+                                </div>
+                              </div>
+
+                              {isCatOpen && (
+                                <div style={{ padding: '8px 12px', background: '#fff' }}>
+                                  {(cat.groups || []).map((grp) => {
+                                    const grpKey = `group:${grp.id}`
+                                    const isGrpSelected = !!customTargets[grpKey]
+                                    const isGrpOpen = q ? true : (openGroups[grp.id] ?? true)
+
+                                    const grpItemCount = grp.items?.length || 0
+                                    const selectedInGrp = (grp.items || []).filter((it) => !!customTargets[`item:${it.id}`]).length
+
+                                    return (
+                                      <div key={grp.id} className="offer-target-group-card">
+                                        <div className="offer-target-group-header">
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+                                            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0 }}>
+                                              <input
+                                                type="checkbox"
+                                                checked={isGrpSelected}
+                                                onChange={() => toggleTarget('group', grp.id)}
+                                                style={{ width: '15px', height: '15px', accentColor: 'var(--staff-rose-dark)' }}
+                                              />
+                                              <span style={{ fontWeight: '700', fontSize: '13px', color: 'var(--staff-ink)' }}>
+                                                مجموعة: {grp.name_ar}
+                                              </span>
+                                            </label>
+
+                                            <span style={{ fontSize: '11px', color: 'var(--staff-muted)' }}>
+                                              ({grpItemCount} خدمة)
+                                            </span>
+
+                                            {selectedInGrp > 0 && (
+                                              <span style={{ fontSize: '10.5px', background: '#FAF0F4', color: 'var(--staff-rose-dark)', padding: '1px 7px', borderRadius: '10px', fontWeight: 'bold', border: '1px solid var(--staff-border)' }}>
+                                                {selectedInGrp} من {grpItemCount} محددة
+                                              </span>
+                                            )}
+                                          </div>
+
+                                          <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                                            <button
+                                              type="button"
+                                              onClick={() => toggleSelectAllInGroup(grp)}
+                                              style={{
+                                                background: 'none',
+                                                border: 'none',
+                                                cursor: 'pointer',
+                                                fontSize: '11px',
+                                                color: 'var(--staff-rose-dark)',
+                                                fontWeight: '600',
+                                              }}
+                                            >
+                                              {selectedInGrp === grpItemCount && grpItemCount > 0 ? 'إلغاء الكل' : 'تحديد الكل'}
+                                            </button>
+                                            <button
+                                              type="button"
+                                              onClick={() => setOpenGroups((prev) => ({ ...prev, [grp.id]: !isGrpOpen }))}
+                                              style={{ background: 'none', border: 'none', cursor: 'pointer', fontSize: '12px', color: 'var(--staff-muted)', padding: '2px 6px' }}
+                                            >
+                                              {isGrpOpen ? '▲' : '▼'}
+                                            </button>
+                                          </div>
+                                        </div>
+
+                                        {isGrpOpen && (
+                                          <div className="offer-target-items-grid">
+                                            {(grp.items || []).map((item) => {
+                                              const itemKey = `item:${item.id}`
+                                              const isItemSelected = !!customTargets[itemKey]
+                                              const itemCustom = customTargets[itemKey]
+                                              const hasCustom = itemCustom && itemCustom.discount_value > 0
+
+                                              return (
+                                                <div
+                                                  key={item.id}
+                                                  className={`offer-target-item-card ${isItemSelected ? 'offer-target-item-card--selected' : ''}`}
+                                                >
+                                                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', flex: 1, margin: 0, minWidth: 0 }}>
+                                                    <input
+                                                      type="checkbox"
+                                                      checked={isItemSelected}
+                                                      onChange={() => toggleTarget('item', item.id)}
+                                                      style={{ width: '15px', height: '15px', accentColor: 'var(--staff-rose-dark)', flexShrink: 0 }}
+                                                    />
+                                                    <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                                                      <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--staff-ink)', wordBreak: 'break-word' }}>
+                                                        {item.name_ar}
+                                                      </span>
+                                                      <span style={{ fontSize: '11.5px', color: 'var(--staff-muted)', marginTop: '2px' }}>
+                                                        {(Number(item.price) || Number(item.min_price) || 0) > 0 ? (
+                                                          <>السعر: <strong style={{ color: 'var(--staff-rose-dark)' }}>{item.price || item.min_price} ج</strong></>
+                                                        ) : (
+                                                          <span style={{ color: 'var(--staff-warning, #C2671A)', fontWeight: '600' }}>يتم تحديدها بواسطة الصالون</span>
+                                                        )}
+                                                      </span>
+                                                    </div>
+                                                  </label>
+
+                                                  {isItemSelected && (
+                                                    <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                                                      <span
+                                                        style={{
+                                                          fontSize: '10.5px',
+                                                          padding: '2px 6px',
+                                                          borderRadius: '6px',
+                                                          background: hasCustom ? 'var(--staff-rose-dark)' : '#FAF5F8',
+                                                          color: hasCustom ? '#fff' : 'var(--staff-muted)',
+                                                          fontWeight: hasCustom ? 'bold' : 'normal',
+                                                          border: hasCustom ? 'none' : '1px solid var(--staff-border)',
+                                                        }}
+                                                      >
+                                                        {hasCustom ? `${itemCustom.discount_value} ${itemCustom.discount_type === 'fixed' ? 'ج' : '%'}` : 'عام'}
+                                                      </span>
+                                                      <button
+                                                        type="button"
+                                                        className="btn btn--sm btn--secondary"
+                                                        style={{ padding: '2px 6px', fontSize: '10px' }}
+                                                        title="تخصيص الخصم لهذه الخدمة"
+                                                        onClick={() => setCustomDiscountDialog({ key: itemKey, name: item.name_ar, current: itemCustom })}
+                                                      >
+                                                        ✏️
+                                                      </button>
+                                                    </div>
+                                                  )}
+                                                </div>
+                                              )
+                                            })}
+                                          </div>
+                                        )}
+                                      </div>
+                                    )
+                                  })}
+                                </div>
+                              )}
+                            </div>
+                          )
+                        })
+                      )}
                     </div>
                   )}
                 </div>
-              )}
+
+                {/* ── ب) قسم المنتجات ── */}
+                <div style={{ border: '1px solid var(--staff-border)', borderRadius: '12px', marginBottom: '14px', overflow: 'hidden' }}>
+                  <div
+                    onClick={() => setExpandedSections((prev) => ({ ...prev, products: !prev.products }))}
+                    style={{
+                      background: 'linear-gradient(135deg, #FAF2F6 0%, #F5E8F0 100%)',
+                      padding: '12px 14px',
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      cursor: 'pointer',
+                      fontWeight: 'bold',
+                      fontSize: '14px',
+                      borderBottom: expandedSections.products ? '1px solid var(--staff-border)' : 'none',
+                    }}
+                  >
+                    <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                      <span>🛍️ منتجات الصالون</span>
+                      <span style={{ fontSize: '12px', background: '#fff', padding: '2px 8px', borderRadius: '12px', color: 'var(--staff-rose-dark)', fontWeight: '700' }}>
+                        {filteredProducts.length} منتج
+                      </span>
+                    </span>
+                    <span>{expandedSections.products ? '▲' : '▼'}</span>
+                  </div>
+
+                  {expandedSections.products && (
+                    <div style={{ padding: '12px' }}>
+                      {filteredProducts.length === 0 ? (
+                        <div style={{ textAlign: 'center', padding: '16px', color: 'var(--staff-muted)', fontSize: '13px' }}>
+                          {searchTerm ? 'لا توجد منتجات مطابقة لبحثك' : 'لا توجد منتجات مسجلة'}
+                        </div>
+                      ) : (
+                        <div className="offer-target-items-grid">
+                          {filteredProducts.map((p) => {
+                            const key = `product:${p.id}`
+                            const isSelected = !!customTargets[key]
+                            const custom = customTargets[key]
+                            const hasCustom = custom && custom.discount_value > 0
+
+                            return (
+                              <div
+                                key={p.id}
+                                className={`offer-target-item-card ${isSelected ? 'offer-target-item-card--selected' : ''}`}
+                              >
+                                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', flex: 1, margin: 0, minWidth: 0 }}>
+                                  <input
+                                    type="checkbox"
+                                    checked={isSelected}
+                                    onChange={() => toggleTarget('product', p.id)}
+                                    style={{ width: '15px', height: '15px', accentColor: 'var(--staff-rose-dark)', flexShrink: 0 }}
+                                  />
+                                  <div style={{ minWidth: 0, display: 'flex', flexDirection: 'column' }}>
+                                    <span style={{ fontWeight: '600', fontSize: '13px', color: 'var(--staff-ink)', wordBreak: 'break-word' }}>
+                                      {p.name}
+                                    </span>
+                                    {p.price != null && (
+                                      <span style={{ fontSize: '11.5px', color: 'var(--staff-muted)', marginTop: '2px' }}>
+                                        {Number(p.price) > 0 ? (
+                                          <>السعر: <strong style={{ color: 'var(--staff-rose-dark)' }}>{p.price} ج</strong></>
+                                        ) : (
+                                          <span style={{ color: 'var(--staff-warning, #C2671A)', fontWeight: '600' }}>يتم تحديدها بواسطة الصالون</span>
+                                        )}
+                                      </span>
+                                    )}
+                                  </div>
+                                </label>
+
+                                {isSelected && (
+                                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexShrink: 0 }}>
+                                    <span
+                                      style={{
+                                        fontSize: '10.5px',
+                                        padding: '2px 6px',
+                                        borderRadius: '6px',
+                                        background: hasCustom ? 'var(--staff-rose-dark)' : '#FAF5F8',
+                                        color: hasCustom ? '#fff' : 'var(--staff-muted)',
+                                        fontWeight: hasCustom ? 'bold' : 'normal',
+                                        border: hasCustom ? 'none' : '1px solid var(--staff-border)',
+                                      }}
+                                    >
+                                      {hasCustom ? `${custom.discount_value} ${custom.discount_type === 'fixed' ? 'ج' : '%'}` : 'عام'}
+                                    </span>
+                                    <button
+                                      type="button"
+                                      className="btn btn--sm btn--secondary"
+                                      style={{ padding: '2px 6px', fontSize: '10px' }}
+                                      title="تخصيص الخصم لهذا المنتج"
+                                      onClick={() => setCustomDiscountDialog({ key, name: p.name, current: custom })}
+                                    >
+                                      ✏️
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {/* ── ج) قسم الباقات (Bundles) ── */}
+                {bundles.length > 0 && (
+                  <div style={{ border: '1px solid var(--staff-border)', borderRadius: '12px', overflow: 'hidden' }}>
+                    <div
+                      onClick={() => setExpandedSections((prev) => ({ ...prev, bundles: !prev.bundles }))}
+                      style={{
+                        background: 'linear-gradient(135deg, #FAF2F6 0%, #F5E8F0 100%)',
+                        padding: '12px 14px',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        cursor: 'pointer',
+                        fontWeight: 'bold',
+                        fontSize: '14px',
+                        borderBottom: expandedSections.bundles ? '1px solid var(--staff-border)' : 'none',
+                      }}
+                    >
+                      <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <span>🎁 باقات الصالون الجاهزة</span>
+                        <span style={{ fontSize: '12px', background: '#fff', padding: '2px 8px', borderRadius: '12px', color: 'var(--staff-rose-dark)', fontWeight: '700' }}>
+                          {filteredBundles.length} باقة
+                        </span>
+                      </span>
+                      <span>{expandedSections.bundles ? '▲' : '▼'}</span>
+                    </div>
+
+                    {expandedSections.bundles && (
+                      <div style={{ padding: '12px' }}>
+                        {filteredBundles.length === 0 ? (
+                          <div style={{ textAlign: 'center', padding: '16px', color: 'var(--staff-muted)', fontSize: '13px' }}>
+                            {searchTerm ? 'لا توجد باقات مطابقة لبحثك' : 'لا توجد باقات مسجلة'}
+                          </div>
+                        ) : (
+                          <div className="offer-target-items-grid">
+                            {filteredBundles.map((b) => {
+                              const key = `bundle:${b.id}`
+                              const isSelected = !!customTargets[key]
+                              return (
+                                <div
+                                  key={b.id}
+                                  className={`offer-target-item-card ${isSelected ? 'offer-target-item-card--selected' : ''}`}
+                                >
+                                  <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', margin: 0, flex: 1, minWidth: 0 }}>
+                                    <input
+                                      type="checkbox"
+                                      checked={isSelected}
+                                      onChange={() => toggleTarget('bundle', b.id)}
+                                      style={{ width: '15px', height: '15px', accentColor: 'var(--staff-rose-dark)', flexShrink: 0 }}
+                                    />
+                                    <span style={{ fontSize: '13px', fontWeight: '600', color: 'var(--staff-ink)', wordBreak: 'break-word' }}>
+                                      {b.name}
+                                    </span>
+                                  </label>
+                                </div>
+                              )
+                            })}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          <div className="modal-footer" style={{ marginTop: '20px', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+          <div className="modal-footer" style={{ padding: '16px 24px', borderTop: '1px solid var(--staff-border)', background: 'var(--staff-bg)', display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
             <button type="button" className="btn btn--secondary" onClick={onClose} disabled={isBusy}>
               إلغاء
             </button>
@@ -665,12 +982,12 @@ function OfferFormModal({ offer, selectionData, onSave, onClose, saving }) {
       {/* ── Dialog تخصيص الخصم للبند ── */}
       {customDiscountDialog && (
         <div className="modal-overlay" style={{ zIndex: 1100 }} onClick={() => setCustomDiscountDialog(null)}>
-          <div className="modal" style={{ maxWidth: '400px' }} onClick={(e) => e.stopPropagation()}>
+          <div className="modal" style={{ maxWidth: '400px', padding: '20px', borderRadius: '16px' }} onClick={(e) => e.stopPropagation()}>
             <div className="modal-header">
               <h3 className="modal-title" style={{ fontSize: '15px' }}>خصم مخصص لـ {customDiscountDialog.name}</h3>
               <button className="modal-close-btn" onClick={() => setCustomDiscountDialog(null)}>✕</button>
             </div>
-            <div className="modal-body">
+            <div className="modal-body" style={{ padding: '10px 0' }}>
               <p style={{ fontSize: '12px', color: 'var(--staff-muted)', margin: '0 0 12px' }}>
                 اترك القيمة فارغة للعودة إلى استخدام الخصم العام المطبق على العرض.
               </p>
@@ -693,7 +1010,7 @@ function OfferFormModal({ offer, selectionData, onSave, onClose, saving }) {
                 />
               </div>
             </div>
-            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between' }}>
+            <div className="modal-footer" style={{ display: 'flex', justifyContent: 'space-between', paddingTop: '10px' }}>
               <button
                 type="button"
                 className="btn btn--secondary"

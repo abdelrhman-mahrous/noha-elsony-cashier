@@ -10,6 +10,14 @@ import OwnerApp from './owner/OwnerApp'
 import MarketingApp from './marketing/MarketingApp'
 import ClientApp from './client/ClientApp'
 
+// 🌟 Demo Suite Imports
+import DemoHubPage from './demo/DemoHubPage'
+import DemoOwnerApp from './demo/owner/DemoOwnerApp'
+import DemoStylistApp from './demo/stylist/DemoStylistApp'
+import DemoMarketingApp from './demo/marketing/DemoMarketingApp'
+import DemoCashierApp from './demo/cashier/DemoCashierApp'
+import DemoClientApp from './demo/client/DemoClientApp'
+
 function CashierShell() {
   const { cashier, loading } = useAuth()
 
@@ -52,6 +60,15 @@ export default function App() {
     <HashRouter>
       <ToastProvider>
         <Routes>
+          {/* ✨ بوابات الديمو التفاعلية بالبيانات التجريبية للعملاء */}
+          <Route path="/demo" element={<DemoHubPage />} />
+          <Route path="/demo/owner/*" element={<DemoOwnerApp />} />
+          <Route path="/demo/stylist/*" element={<DemoStylistApp />} />
+          <Route path="/demo/barber/*" element={<DemoStylistApp />} />
+          <Route path="/demo/marketing/*" element={<DemoMarketingApp />} />
+          <Route path="/demo/cashier/*" element={<DemoCashierApp />} />
+          <Route path="/demo/client/*" element={<DemoClientApp />} />
+
           {/* 👑 بوابة صاحبة الصالون */}
           <Route path="/owner/*" element={<OwnerApp />} />
 
@@ -73,3 +90,4 @@ export default function App() {
     </HashRouter>
   )
 }
+

@@ -62,20 +62,21 @@ export async function buildPosDetails(appt) {
       hasServicesFromTable = true
       for (const row of services) {
         const srvPrice = (row.price || 0)
+        const origPrice = (row.original_price != null && row.original_price > 0) ? row.original_price : srvPrice
         const serviceType = row.service_type || 'service'
         let itemType = 'service'
         if (serviceType === 'package') itemType = 'package'
-        if (serviceType === 'addon') itemType = 'addon'
+        if (serviceType === 'addon' || serviceType === 'buffet') itemType = 'addon'
 
         items.push({
           id: row.id || '',
           serviceId: row.service_id || row.id || apptId,
-          title: row.service_name || 'خدمة إضافية',
+          title: row.service_name || 'خدمة صالون',
           subtitle: srvPrice === 0 ? 'يتطلب تحديد السعر في الصالون' : (serviceType || 'خدمة'),
           itemType,
           unitPrice: srvPrice,
-          originalUnitPrice: row.original_price || srvPrice,
-          quantity: 1,
+          originalUnitPrice: origPrice,
+          quantity: row.quantity || 1,
           status: row.status === 'cancelled' ? 'cancelled' : 'delivered',
           cancelReason: row.cancel_reason || '',
           isCustomPrice: row.is_custom_price === true || srvPrice === 0,
@@ -89,8 +90,98 @@ export async function buildPosDetails(appt) {
     }
   } catch (_) {}
 
-  // 2. Fallback — مواعيد قديمة بدون appointment_services
-  if (!hasServicesFromTable) {
+  // 2. جلب خدمات البوفيه والإضافات (Addons)
+  try {
+    const existingAddonTitles = new Set(
+      items.filter(i => i.itemType === 'addon').map(i => i.title.trim())
+    )
+    const existingAddonIds = new Set(
+      items.filter(i => i.itemType === 'addon').map(i => i.serviceId || i.id)
+    )
+
+    let rawAddons = appt.selected_addons
+    let addonIdsOrNames = []
+    if (Array.isArray(rawAddons)) {
+      addonIdsOrNames = rawAddons.map(x => String(x).trim()).filter(Boolean)
+    } else if (typeof rawAddons === 'string' && rawAddons.trim() && rawAddons.trim() !== '[]') {
+      try {
+        const parsed = JSON.parse(rawAddons)
+        if (Array.isArray(parsed)) {
+          addonIdsOrNames = parsed.map(x => String(x).trim()).filter(Boolean)
+        } else {
+          addonIdsOrNames = [rawAddons.trim()]
+        }
+      } catch (_) {
+        addonIdsOrNames = [rawAddons.trim()]
+      }
+    }
+
+    // fallback من notes لو selected_addons فاضي
+    if (addonIdsOrNames.length === 0 && appt.notes && appt.notes.includes('الإضافات:')) {
+      const lines = appt.notes.split('\n')
+      for (const line of lines) {
+        if (line.includes('الإضافات:')) {
+          const parts = line.replace('الإضافات:', '').split(',')
+          for (const p of parts) {
+            const tr = p.trim()
+            if (tr) addonIdsOrNames.push(tr)
+          }
+        }
+      }
+    }
+
+    if (addonIdsOrNames.length > 0) {
+      // Query addons table
+      const { data: addonsTable } = await supabase
+        .from('addons')
+        .select('*')
+
+      if (addonsTable && addonsTable.length > 0) {
+        for (const itemRef of addonIdsOrNames) {
+          const match = addonsTable.find(
+            a => a.id === itemRef ||
+                 (a.arabic_name && a.arabic_name.trim() === itemRef) ||
+                 (a.name && a.name.trim() === itemRef)
+          )
+
+          if (!match) continue
+
+          const title = match.arabic_name || match.name || 'إضافة'
+          const addonId = match.id || itemRef
+          const price = match.price || 0
+
+          if (!existingAddonTitles.has(title) && !existingAddonIds.has(addonId)) {
+            existingAddonTitles.add(title)
+            existingAddonIds.add(addonId)
+
+            items.push({
+              id: addonId,
+              serviceId: addonId,
+              title,
+              subtitle: 'خدمات البوفيه والإضافات',
+              itemType: 'addon',
+              unitPrice: price,
+              originalUnitPrice: price,
+              quantity: 1,
+              status: 'delivered',
+              cancelReason: '',
+              isCustomPrice: false,
+              isCoveredByOffer: false,
+              offerDiscountNote: null,
+              offerDiscountRate: null,
+              targetDiscountType: null,
+              targetDiscountAmount: null,
+            })
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.error('Error loading addons for POS:', err)
+  }
+
+  // 3. Fallback — مواعيد قديمة بدون appointment_services
+  if (!hasServicesFromTable && items.filter(i => i.itemType !== 'addon').length === 0) {
     const pkg = appt.packages
     if (pkg) {
       items.push({
@@ -114,7 +205,7 @@ export async function buildPosDetails(appt) {
     }
   }
 
-  // 3. المنتجات
+  // 4. المنتجات
   try {
     const { data: products } = await supabase
       .from('appointment_products')
@@ -123,15 +214,19 @@ export async function buildPosDetails(appt) {
 
     if (products) {
       for (const row of products) {
+        const qty = row.quantity || 1
+        const uPrice = row.final_unit_price != null ? row.final_unit_price : (row.unit_price != null ? row.unit_price : (row.price != null ? row.price : (row.total_price != null ? (row.total_price / qty) : 0)))
+        const origPrice = row.original_price != null ? row.original_price : uPrice
+
         items.push({
           id: row.id || '',
-          serviceId: null,
+          serviceId: row.product_id || null,
           title: row.product_name || 'منتج',
-          subtitle: row.color_name || 'منتج صالون',
+          subtitle: row.color_name || 'منتجات العناية بالصالون',
           itemType: 'product',
-          unitPrice: row.final_unit_price || row.unit_price || row.price || row.total_price || 0,
-          originalUnitPrice: row.original_price || row.unit_price || row.price || 0,
-          quantity: row.quantity || 1,
+          unitPrice: uPrice,
+          originalUnitPrice: origPrice,
+          quantity: qty,
           status: row.status === 'cancelled' ? 'cancelled' : 'delivered',
           cancelReason: row.cancel_reason || '',
           isCustomPrice: row.is_custom_price === true,
@@ -145,7 +240,7 @@ export async function buildPosDetails(appt) {
     }
   } catch (_) {}
 
-  // 4. Fallback نهائي
+  // 5. Fallback نهائي لو مفيش بنود خالص
   if (items.length === 0) {
     const priceVal = appt.price || appt.original_price || 0
     items.push({
@@ -168,10 +263,10 @@ export async function buildPosDetails(appt) {
     })
   }
 
-  // 5. تطبيق العروض
+  // 6. تطبيق العروض
   const taggedItems = await applyOffers(appt, items)
 
-  // 6. بيانات العميل
+  // 7. بيانات العميل
   let customerName = (appt.user_name || '').trim()
   let customerPhone = (appt.user_phone || '').trim()
   let customerNickname = ''
@@ -192,6 +287,8 @@ export async function buildPosDetails(appt) {
   }
   if (!customerName) customerName = 'عميلة'
 
+  const hasOffer = !!(appt.offer_id || appt.offer_title_ar || (appt.discount_amount && appt.discount_amount > 0))
+
   return {
     appointmentId: apptId,
     appointmentCode: appt.appointment_code || '',
@@ -201,13 +298,17 @@ export async function buildPosDetails(appt) {
     barberName: appt.barbers?.name || 'كوافيرة',
     appointmentTime: appt.appointment_time || '',
     appointmentDate: appt.appointment_date || '',
-    depositPaid: appt.deposit_amount || 0,
+    depositPaid: appt.deposit_amount || appt.deposit_paid || 0,
     status: appt.status || 'pending',
     paidAmount: appt.paid_amount || 0,
     cashierNotes: appt.cashier_notes || '',
     tipAmount: appt.tip_amount || 0,
+    hasOffer,
     offerId: appt.offer_id || null,
-    offerTitleAr: appt.offer_title_ar || null,
+    offerTitleAr: appt.offer_title_ar || (hasOffer ? 'عرض خاص' : null),
+    originalPrice: appt.original_price || 0,
+    discountAmount: appt.discount_amount || 0,
+    price: appt.price || 0,
     discountType: null,
     discountValue: null,
     items: taggedItems,
@@ -216,84 +317,213 @@ export async function buildPosDetails(appt) {
 
 async function applyOffers(appt, items) {
   const offerId = appt.offer_id
-  if (!offerId || offerId === 'null') return items
+  const apptDiscountAmount = appt.discount_amount || 0
+  let offerTitle = appt.offer_title_ar || 'عرض الصالون'
 
-  try {
-    const { data: offerResp } = await supabase
-      .from('service_offers')
-      .select('*, service_offer_targets(target_type, target_id, discount_type, discount_value)')
-      .eq('id', offerId)
-      .maybeSingle()
+  let offerResp = null
+  let discountType = null
+  let discountValue = null
+  let targetItems = []
+  let targetGroups = []
+  let targetCategories = []
+  let targetProducts = []
+  const targetItemDiscounts = {}
 
-    if (!offerResp) return items
-
-    const discountType = offerResp.discount_type
-    const discountValue = offerResp.discount_value || 0
-    const offerLabel = offerResp.title_ar || appt.offer_title_ar || 'عرض الصالون'
-    const targets = offerResp.service_offer_targets || []
-
-    const targetItemDiscounts = {}
-    const targetItemIds = []
-
-    for (const t of targets) {
-      if (t.target_type === 'item' && t.target_id) {
-        targetItemIds.push(t.target_id)
-        if (t.discount_type && t.discount_value) {
-          targetItemDiscounts[t.target_id] = { type: t.discount_type, value: t.discount_value }
+  if (offerId && offerId !== 'null') {
+    try {
+      const { data: sOffer } = await supabase
+        .from('service_offers')
+        .select('*, service_offer_targets(target_type, target_id, discount_type, discount_value)')
+        .eq('id', offerId)
+        .maybeSingle()
+      if (sOffer) {
+        offerResp = sOffer
+        offerTitle = sOffer.title_ar || offerTitle
+        discountType = sOffer.discount_type
+        discountValue = sOffer.discount_value
+        const targets = sOffer.service_offer_targets || []
+        for (const t of targets) {
+          const tType = t.target_type
+          const tId = t.target_id
+          if (tId) {
+            if (tType === 'item') {
+              targetItems.push(tId)
+              if (t.discount_type && t.discount_value) {
+                targetItemDiscounts[tId] = { type: t.discount_type, value: t.discount_value }
+              }
+            } else if (tType === 'group') {
+              targetGroups.push(tId)
+            } else if (tType === 'category') {
+              targetCategories.push(tId)
+            } else if (tType === 'product') {
+              targetProducts.push(tId)
+            }
+          }
+        }
+      } else {
+        // فحص جدول offers
+        const { data: bOffer } = await supabase
+          .from('offers')
+          .select('*')
+          .eq('id', offerId)
+          .maybeSingle()
+        if (bOffer) {
+          offerResp = bOffer
+          offerTitle = bOffer.title || offerTitle
+          discountType = bOffer.package_discount_type || 'fixed'
+          discountValue = bOffer.package_discount_value || bOffer.offer_price || apptDiscountAmount
         }
       }
+    } catch (_) {}
+  }
+
+  // حل المجموعات والتصنيفات للأصناف المستهدفة
+  if (targetGroups.length > 0) {
+    try {
+      const { data: gItems } = await supabase
+        .from('service_items')
+        .select('id')
+        .in('group_id', targetGroups)
+      if (gItems) {
+        gItems.forEach(r => { if (r.id) targetItems.push(r.id) })
+      }
+    } catch (_) {}
+  }
+  if (targetCategories.length > 0) {
+    try {
+      const { data: cGroups } = await supabase
+        .from('service_groups')
+        .select('id')
+        .in('category_id', targetCategories)
+      if (cGroups && cGroups.length > 0) {
+        const groupIds = cGroups.map(g => g.id)
+        const { data: cItems } = await supabase
+          .from('service_items')
+          .select('id')
+          .in('group_id', groupIds)
+        if (cItems) {
+          cItems.forEach(r => { if (r.id) targetItems.push(r.id) })
+        }
+      }
+    } catch (_) {}
+  }
+
+  // في حال عدم العثور على discountValue
+  if ((discountValue == null || discountValue === 0) && Object.keys(targetItemDiscounts).length === 0) {
+    if (apptDiscountAmount > 0) {
+      discountValue = apptDiscountAmount
+      if (!discountType) discountType = 'fixed'
     }
+  }
 
-    return items.map(item => {
-      const itemId = item.serviceId || item.id
-      const isTargetSpecific = Object.keys(targetItemDiscounts).length > 0
-      const isCovered = isTargetSpecific
-        ? (targetItemDiscounts[itemId] != null || targetItemIds.includes(itemId))
-        : (item.itemType === 'service' || item.itemType === 'package')
+  const isTargetSpecific = Object.keys(targetItemDiscounts).length > 0
+  const hasTargets = targetItems.length > 0 || targetProducts.length > 0 || isTargetSpecific
 
-      if (!isCovered) return item
+  // 1. باقة بسعر ثابت (fixed_package / fixedPackage / package)
+  if (discountType === 'fixed_package' || discountType === 'fixedPackage' || discountType === 'package') {
+    const serviceItems = items.filter(i => i.itemType === 'service' || i.itemType === 'package')
+    const origServicesSum = serviceItems.reduce((s, i) => s + (i.originalUnitPrice || i.unitPrice) * i.quantity, 0)
+    const addonsSum = items.filter(i => i.itemType === 'addon').reduce((s, a) => s + a.unitPrice * a.quantity, 0)
+    const productsSum = items.filter(i => i.itemType === 'product').reduce((s, p) => s + p.unitPrice * p.quantity, 0)
+    const targetPackagePrice = (discountValue != null && discountValue > 0) ? discountValue : (appt.price ? Math.max(0, appt.price - addonsSum - productsSum) : origServicesSum)
+    const calculatedDiscount = Math.max(origServicesSum - targetPackagePrice, 0)
 
-      let note = `ضمن عرض: ${offerLabel}`
-      let discountedUnit = null
-      let discountRate = null
-      let itemTargetDiscountType = null
-      let itemTargetDiscountAmount = null
-
-      const spec = targetItemDiscounts[itemId]
-      if (spec) {
-        itemTargetDiscountType = spec.type
-        itemTargetDiscountAmount = spec.value
-        if (spec.type === 'percentage') {
-          const rate = Math.min(spec.value / 100, 1)
-          note = `خصم ${spec.value}% ضمن عرض: ${offerLabel}`
-          discountRate = rate
-          if (item.unitPrice > 0) discountedUnit = item.unitPrice * (1 - rate)
-        } else {
-          note = `خصم ${spec.value} جنيه ضمن عرض: ${offerLabel}`
-          if (item.unitPrice > 0) discountedUnit = Math.max(item.unitPrice - spec.value, 0)
+    if (origServicesSum > 0 && calculatedDiscount > 0) {
+      const discountRatio = calculatedDiscount / origServicesSum
+      return items.map(item => {
+        if (item.itemType !== 'service' && item.itemType !== 'package') return item
+        const orig = item.originalUnitPrice || item.unitPrice
+        const discounted = Math.max(orig * (1 - discountRatio), 0)
+        return {
+          ...item,
+          isCoveredByOffer: true,
+          offerDiscountNote: `ضمن باقة: ${offerTitle}`,
+          offerDiscountRate: discountRatio,
+          unitPrice: appt.status === 'completed' ? item.unitPrice : discounted,
+          originalUnitPrice: orig,
         }
-      } else if (discountType === 'percentage' && discountValue > 0) {
-        const rate = Math.min(discountValue / 100, 1)
-        note = `خصم ${discountValue}% ضمن عرض: ${offerLabel}`
-        discountRate = rate
-        if (item.unitPrice > 0) discountedUnit = item.unitPrice * (1 - rate)
-      }
+      })
+    }
+  }
 
-      const isCompleted = appt.status === 'completed'
+  // 2. خصومات على بنود محددة أو خصومات عامة نسبة/مبلغ
+  const serviceItems = items.filter(i => i.itemType === 'service' || i.itemType === 'package')
+  const serviceItemsSum = serviceItems.reduce((s, i) => s + (i.originalUnitPrice || i.unitPrice) * i.quantity, 0)
+
+  // لو مفيش offerId بس فيه discount_amount مسجل على الموعد
+  if (!offerId && apptDiscountAmount > 0 && serviceItemsSum > 0) {
+    const discountRatio = Math.min(apptDiscountAmount / serviceItemsSum, 1)
+    return items.map(item => {
+      if (item.itemType !== 'service' && item.itemType !== 'package') return item
+      const orig = item.originalUnitPrice || item.unitPrice
+      const discounted = Math.max(orig * (1 - discountRatio), 0)
       return {
         ...item,
         isCoveredByOffer: true,
-        offerDiscountNote: note,
-        offerDiscountRate: discountRate,
-        unitPrice: isCompleted ? item.unitPrice : (discountedUnit ?? item.unitPrice),
-        originalUnitPrice: item.originalUnitPrice ?? (item.unitPrice > 0 ? item.unitPrice : null),
-        targetDiscountType: itemTargetDiscountType,
-        targetDiscountAmount: itemTargetDiscountAmount,
+        offerDiscountNote: `خصم عرض: ${offerTitle}`,
+        offerDiscountRate: discountRatio,
+        unitPrice: appt.status === 'completed' ? item.unitPrice : discounted,
+        originalUnitPrice: orig,
       }
     })
-  } catch (_) {
-    return items
   }
+
+  return items.map(item => {
+    const itemId = item.serviceId || item.id
+    const isCovered = isTargetSpecific
+      ? (targetItemDiscounts[itemId] != null || targetItems.includes(itemId))
+      : (hasTargets
+          ? (targetItems.includes(itemId) || targetProducts.includes(itemId) || (item.itemType === 'service' && targetItems.length === 0))
+          : (item.itemType === 'service' || item.itemType === 'package'))
+
+    if (!isCovered) return item
+
+    let note = `ضمن عرض: ${offerTitle}`
+    let discountedUnit = null
+    let discountRate = null
+    let itemTargetDiscountType = null
+    let itemTargetDiscountAmount = null
+
+    const spec = targetItemDiscounts[itemId]
+    if (spec) {
+      itemTargetDiscountType = spec.type
+      itemTargetDiscountAmount = spec.value
+      if (spec.type === 'percentage') {
+        const rate = Math.min(spec.value / 100, 1)
+        note = `خصم ${spec.value}% ضمن عرض: ${offerTitle}`
+        discountRate = rate
+        if (item.unitPrice > 0) discountedUnit = item.unitPrice * (1 - rate)
+      } else {
+        note = `خصم ${spec.value} جنيه ضمن عرض: ${offerTitle}`
+        if (item.unitPrice > 0) discountedUnit = Math.max(item.unitPrice - spec.value, 0)
+      }
+    } else if (discountType === 'percentage' && discountValue > 0) {
+      const rate = Math.min(discountValue / 100, 1)
+      note = `خصم ${discountValue}% ضمن عرض: ${offerTitle}`
+      discountRate = rate
+      if (item.unitPrice > 0) discountedUnit = item.unitPrice * (1 - rate)
+    } else if ((discountType === 'fixed' && discountValue > 0) || apptDiscountAmount > 0) {
+      const totalDisc = discountValue > 0 ? discountValue : apptDiscountAmount
+      if (serviceItemsSum > 0 && totalDisc > 0) {
+        const rate = Math.min(totalDisc / serviceItemsSum, 1)
+        note = `خصم عرض: ${offerTitle}`
+        discountRate = rate
+        if (item.unitPrice > 0) discountedUnit = item.unitPrice * (1 - rate)
+      }
+    }
+
+    const isCompleted = appt.status === 'completed'
+    return {
+      ...item,
+      isCoveredByOffer: true,
+      offerDiscountNote: note,
+      offerDiscountRate: discountRate,
+      unitPrice: isCompleted ? item.unitPrice : (discountedUnit ?? item.unitPrice),
+      originalUnitPrice: item.originalUnitPrice ?? (item.unitPrice > 0 ? item.unitPrice : null),
+      targetDiscountType: itemTargetDiscountType,
+      targetDiscountAmount: itemTargetDiscountAmount,
+    }
+  })
 }
 
 /**
@@ -304,39 +534,237 @@ export async function savePosCheckout({ details, paidAmount, tipAmount, notes })
     id: e.id,
     service_id: e.serviceId || e.id,
     item_type: e.itemType,
+    title: e.title,
+    service_name: e.title,
+    product_name: e.title,
     status: e.status,
     cancel_reason: e.cancelReason,
     unit_price: e.unitPrice,
     original_price: e.originalUnitPrice ?? e.unitPrice,
     is_custom_price: e.isCustomPrice,
-    quantity: e.quantity,
+    quantity: e.quantity || 1,
   }))
 
   const deliveredSubtotal = details.items
     .filter(i => i.status === 'delivered')
-    .reduce((sum, i) => sum + i.unitPrice * i.quantity, 0)
+    .reduce((sum, i) => sum + i.unitPrice * (i.quantity || 1), 0)
 
   const totalOriginal = details.items
     .filter(i => i.status === 'delivered')
-    .reduce((sum, i) => sum + (i.originalUnitPrice ?? i.unitPrice) * i.quantity, 0)
+    .reduce((sum, i) => sum + (i.originalUnitPrice ?? i.unitPrice) * (i.quantity || 1), 0)
 
   const discountAmount = Math.max(totalOriginal - deliveredSubtotal, 0)
 
-  const { error } = await supabase.rpc('checkout_appointment_pos', {
-    p_appointment_id: details.appointmentId,
-    p_paid_amount: paidAmount,
-    p_tip_amount: tipAmount,
-    p_notes: notes || '',
-    p_price: deliveredSubtotal,
-    p_original_price: totalOriginal,
-    p_discount_amount: discountAmount,
-    p_offer_id: details.offerId,
-    p_offer_title_ar: details.offerTitleAr,
-    p_items: itemsJson,
-  })
+  // 1. استدعاء RPC الرئيسي
+  let rpcData = null
+  try {
+    const res = await supabase.rpc('checkout_appointment_pos', {
+      p_appointment_id: details.appointmentId,
+      p_paid_amount: paidAmount,
+      p_tip_amount: tipAmount,
+      p_notes: notes || '',
+      p_price: deliveredSubtotal,
+      p_original_price: totalOriginal,
+      p_discount_amount: discountAmount,
+      p_offer_id: details.offerId,
+      p_offer_title_ar: details.offerTitleAr,
+      p_items: itemsJson,
+    })
+    if (res.error) throw res.error
+    rpcData = res.data
+  } catch (rpcErr) {
+    console.warn('RPC checkout_appointment_pos failed, running client fallback:', rpcErr.message)
+    // تحديث مباشر لجدول appointments
+    await supabase
+      .from('appointments')
+      .update({
+        status: 'completed',
+        paid_amount: paidAmount,
+        tip_amount: tipAmount,
+        cashier_notes: notes || '',
+        price: deliveredSubtotal,
+        original_price: totalOriginal,
+        discount_amount: discountAmount,
+        completed_at: new Date().toISOString(),
+      })
+      .eq('id', details.appointmentId)
+  }
 
-  if (error) throw new Error('تعذر حفظ المحاسبة: ' + error.message)
+  // 2. تحديث وإدراج الخدمات والبوفيه في appointment_services لضمان حفظ كل التعديلات والبنود الجديدة
+  try {
+    const serviceItems = details.items.filter(i => i.itemType === 'service' || i.itemType === 'addon' || i.itemType === 'package')
+    for (const item of serviceItems) {
+      if (item.isNewlyAdded || String(item.id).startsWith('new_')) {
+        // إدراج بند جديد
+        await supabase.from('appointment_services').insert({
+          appointment_id: details.appointmentId,
+          service_id: item.serviceId && !String(item.serviceId).startsWith('new_') ? item.serviceId : null,
+          service_name: item.title,
+          service_type: item.itemType === 'addon' ? 'addon' : 'service',
+          price: item.unitPrice * (item.quantity || 1),
+          original_price: (item.originalUnitPrice ?? item.unitPrice) * (item.quantity || 1),
+          quantity: item.quantity || 1,
+          status: item.status,
+          cancel_reason: item.cancelReason || null,
+          is_custom_price: item.isCustomPrice === true,
+        })
+      } else if (item.id) {
+        // تحديث بند موجود
+        await supabase
+          .from('appointment_services')
+          .update({
+            status: item.status,
+            cancel_reason: item.cancelReason || null,
+            price: item.unitPrice * (item.quantity || 1),
+            original_price: (item.originalUnitPrice ?? item.unitPrice) * (item.quantity || 1),
+            quantity: item.quantity || 1,
+            is_custom_price: item.isCustomPrice === true,
+          })
+          .eq('id', item.id)
+      }
+    }
+  } catch (err) {
+    console.warn('Error updating appointment_services:', err.message)
+  }
+
+  // 3. تحديث وإدراج المنتجات في appointment_products وخصم المخزون
+  try {
+    const productItems = details.items.filter(i => i.itemType === 'product')
+    for (const prod of productItems) {
+      const qty = prod.quantity || 1
+      const totalP = prod.unitPrice * qty
+      if (prod.isNewlyAdded || String(prod.id).startsWith('new_')) {
+        await supabase.from('appointment_products').insert({
+          appointment_id: details.appointmentId,
+          product_id: prod.serviceId && !String(prod.serviceId).startsWith('new_') ? prod.serviceId : null,
+          product_name: prod.title,
+          unit_price: prod.unitPrice,
+          original_price: prod.originalUnitPrice ?? prod.unitPrice,
+          final_unit_price: prod.unitPrice,
+          quantity: qty,
+          total_price: totalP,
+          status: prod.status,
+          cancel_reason: prod.cancelReason || null,
+          color_name: prod.subtitle || 'منتجات العناية بالصالون',
+        })
+      } else if (prod.id) {
+        await supabase
+          .from('appointment_products')
+          .update({
+            status: prod.status,
+            cancel_reason: prod.cancelReason || null,
+            unit_price: prod.unitPrice,
+            final_unit_price: prod.unitPrice,
+            quantity: qty,
+            total_price: totalP,
+          })
+          .eq('id', prod.id)
+      }
+
+      // خصم من المخزون إن وُجد product_id وكان المنتج مُسلَّم
+      if (prod.serviceId && prod.status === 'delivered') {
+        try {
+          const { data: pRow } = await supabase.from('products').select('stock_quantity').eq('id', prod.serviceId).maybeSingle()
+          if (pRow && pRow.stock_quantity != null) {
+            await supabase.from('products').update({
+              stock_quantity: Math.max(0, pRow.stock_quantity - qty)
+            }).eq('id', prod.serviceId)
+          }
+        } catch (_) {}
+      }
+    }
+  } catch (err) {
+    console.warn('Error updating appointment_products:', err.message)
+  }
+
+  // 4. إرسال إشعار التقييم لصاحبة الموعد
+  try {
+    await trySendRatingNotification(details.appointmentId, rpcData)
+  } catch (notifErr) {
+    console.warn('Rating notification failed (non-critical):', notifErr)
+  }
+
   return true
+}
+
+/**
+ * إرسال إشعار التقييم للعميلة وتسجيل التقييم المعلق
+ */
+async function trySendRatingNotification(appointmentId, rpcData) {
+  try {
+    let fcmToken = rpcData?.fcm_token
+    let notifTitle = rpcData?.notif_title
+    let notifBody = rpcData?.notif_body
+    let barberId = rpcData?.barber_id || ''
+
+    if (!fcmToken) {
+      const { data: apptRow } = await supabase
+        .from('appointments')
+        .select('user_id, barber_id, booking_type, user_phone')
+        .eq('id', appointmentId)
+        .maybeSingle()
+
+      if (!apptRow) return
+      if (apptRow.booking_type === 'cashier_walkin') return
+
+      let userId = apptRow.user_id
+      if (!userId && apptRow.user_phone) {
+        const { data: userByPhone } = await supabase
+          .from('users')
+          .select('id, fcm_token, name, nickname')
+          .eq('phone', apptRow.user_phone.trim())
+          .maybeSingle()
+        if (userByPhone) {
+          userId = userByPhone.id
+          fcmToken = userByPhone.fcm_token
+        }
+      }
+
+      if (!userId) return
+      barberId = barberId || apptRow.barber_id || ''
+
+      if (!fcmToken) {
+        const { data: userRow } = await supabase
+          .from('users')
+          .select('name, nickname, fcm_token')
+          .eq('id', userId)
+          .maybeSingle()
+
+        fcmToken = userRow?.fcm_token
+        const nickname = (userRow?.nickname || '').trim()
+        const fullName = (userRow?.name || '').trim()
+        const firstName = fullName ? fullName.split(' ')[0] : ''
+        const userName = nickname || firstName
+        notifTitle = notifTitle || (userName ? `⭐ تقييم تجربتك يا ${userName}` : '⭐ تقييم تجربتك في صالون نهى السني')
+        notifBody = notifBody || (userName
+          ? `أهلاً بكِ ${userName}، بنشكرك على إنك استخدمتي تطبيق نهى السني وأتممتِ حجز موعدك، ومستنيين رأيك في التجربة علشان تاخدي 10 نقاط لما تفتحي التطبيق وتقيمينا 🎁`
+          : 'بنشكرك على إنك استخدمتي تطبيق نهى السني وأتممتِ حجز موعدك، ومستنيين رأيك في التجربة علشان تاخدي 10 نقاط لما تفتحي التطبيق وتقيمينا 🎁')
+      }
+    }
+
+    if (fcmToken) {
+      console.log('Sending FCM rating notification to token:', fcmToken)
+      const res = await supabase.functions.invoke('send-notifications', {
+        body: {
+          token: fcmToken,
+          title: notifTitle || '⭐ تقييم تجربتك في صالون نهى السني',
+          body: notifBody || 'بنشكرك على إتمام حجز موعدك، نود معرفة رأيك في التجربة 🎁',
+          data: {
+            title: notifTitle || '⭐ تقييم تجربتك في صالون نهى السني',
+            body: notifBody || 'بنشكرك على إتمام حجز موعدك، نود معرفة رأيك في التجربة 🎁',
+            type: 'rating_request',
+            appointment_id: String(appointmentId),
+            barber_id: String(barberId || ''),
+          },
+        },
+      })
+      console.log('FCM invocation result:', res)
+    } else {
+      console.warn('No FCM token found for appointment user:', appointmentId)
+    }
+  } catch (err) {
+    console.warn('trySendRatingNotification error:', err)
+  }
 }
 
 /**
@@ -508,21 +936,126 @@ export async function getWalkInBarbers() {
 }
 
 export async function getWalkInProducts() {
+  const result = []
+
+  // 1. جلب المنتجات النشطة من products_full أو products
   try {
-    const { data, error } = await supabase
-      .from('cashier_products')
+    const { data: prods } = await supabase
+      .from('products_full')
       .select('*')
+      .eq('is_active', true)
       .order('name')
 
-    if (!error && data && data.length > 0) return data
-  } catch (_) {}
+    if (prods && prods.length > 0) {
+      prods.forEach(p => {
+        // حساب سعر البيع النهائي بعد الخصم إن وُجد
+        let finalPrice = p.price || 0
+        if (p.discount_percentage && p.discount_percentage > 0) {
+          finalPrice = Math.max(0, finalPrice * (1 - p.discount_percentage / 100))
+        } else if (p.discount_amount && p.discount_amount > 0) {
+          finalPrice = Math.max(0, finalPrice - p.discount_amount)
+        }
 
+        result.push({
+          id: p.id,
+          name: p.name,
+          price: finalPrice,
+          original_price: p.price || 0,
+          purchase_price: p.purchase_price || 0,
+          stock_quantity: p.stock_quantity ?? 0,
+          image_url: p.image_url || (p.images && p.images[0]) || null,
+          is_bundle: false,
+          colors: p.colors || [],
+          discount_percentage: p.discount_percentage || 0,
+          discount_amount: p.discount_amount || 0,
+        })
+      })
+    }
+  } catch (_) {
+    try {
+      const { data: prods2 } = await supabase
+        .from('products')
+        .select('*, product_colors(*)')
+        .eq('is_active', true)
+        .order('name')
+
+      if (prods2 && prods2.length > 0) {
+        prods2.forEach(p => {
+          let finalPrice = p.price || 0
+          if (p.discount_percentage && p.discount_percentage > 0) {
+            finalPrice = Math.max(0, finalPrice * (1 - p.discount_percentage / 100))
+          } else if (p.discount_amount && p.discount_amount > 0) {
+            finalPrice = Math.max(0, finalPrice - p.discount_amount)
+          }
+          result.push({
+            id: p.id,
+            name: p.name,
+            price: finalPrice,
+            original_price: p.price || 0,
+            purchase_price: p.purchase_price || 0,
+            stock_quantity: p.stock_quantity ?? 0,
+            image_url: p.image_url || (p.images && p.images[0]) || null,
+            is_bundle: false,
+            colors: p.product_colors || [],
+            discount_percentage: p.discount_percentage || 0,
+            discount_amount: p.discount_amount || 0,
+          })
+        })
+      }
+    } catch (_) {}
+  }
+
+  // 2. جلب باقات ومجموعات العروض النشطة
   try {
-    const { data } = await supabase.from('products').select('*')
-    if (data && data.length > 0) return data
-  } catch (_) {}
+    const { data: bundles } = await supabase
+      .from('bundles_full')
+      .select('*')
+      .eq('is_active', true)
+      .order('name')
 
-  return []
+    if (bundles && bundles.length > 0) {
+      bundles.forEach(b => {
+        result.push({
+          id: b.id,
+          name: `🎁 باقة: ${b.name}`,
+          price: b.bundle_price || 0,
+          original_price: b.bundle_price || 0,
+          purchase_price: b.purchase_price || 0,
+          stock_quantity: 99,
+          image_url: b.image_url || (b.images && b.images[0]) || null,
+          is_bundle: true,
+          items: b.items || [],
+          discount_percentage: b.discount_percentage || 0,
+        })
+      })
+    }
+  } catch (_) {
+    try {
+      const { data: bundles2 } = await supabase
+        .from('product_bundles')
+        .select('*')
+        .eq('is_active', true)
+        .order('name')
+
+      if (bundles2 && bundles2.length > 0) {
+        bundles2.forEach(b => {
+          result.push({
+            id: b.id,
+            name: `🎁 باقة: ${b.name}`,
+            price: b.bundle_price || 0,
+            original_price: b.bundle_price || 0,
+            purchase_price: b.purchase_price || 0,
+            stock_quantity: 99,
+            image_url: b.image_url || (b.images && b.images[0]) || null,
+            is_bundle: true,
+            discount_percentage: b.discount_percentage || 0,
+          })
+        })
+      }
+    } catch (_) {}
+  }
+
+  return result
 }
 
 export async function getWalkInAddons() {

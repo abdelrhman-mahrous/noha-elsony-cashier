@@ -18,8 +18,16 @@ const OWNER_OPTIONS = [
     to: '/owner/products',
   },
   {
-    title: 'الحسابات والمالية',
-    subtitle: 'تقارير الأرباح، تفصيل الخدمات والمنتجات، وجرد المسحوبات والصافي',
+    title: 'البوفيه والمشروبات',
+    subtitle: 'إدارة قائمة المشروبات الساخنة والباردة، الإضافات والأسعار',
+    icon: '☕',
+    badge: 'البوفيه',
+    imageUrl: 'https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&q=80&w=800',
+    to: '/owner/buffet',
+  },
+  {
+    title: 'الحسابات والمالية والأرباح',
+    subtitle: 'تقارير الأرباح، دخل البوفيه، الإكراميات، دايجرامز يومية، وسجل تدقيق الكاشير',
     icon: '💰',
     badge: 'الحسابات والمالية',
     imageUrl: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&q=80&w=800',

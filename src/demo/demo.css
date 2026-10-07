@@ -1,0 +1,516 @@
+/* ═══════════════════════════════════════════════════════════════
+   Demo Portals CSS — صالون وسبا العرابي بيوتي (نظام المعاينة التفاعلي)
+   ═══════════════════════════════════════════════════════════════ */
+
+:root {
+  --demo-primary: #8E3A59;
+  --demo-primary-dark: #68223B;
+  --demo-primary-light: #FBEFF4;
+  --demo-gold: #D4AF37;
+  --demo-gold-dark: #A78116;
+  --demo-gold-light: #FCF8EC;
+  --demo-dark: #1F151B;
+  --demo-surface: #FFFFFF;
+  --demo-bg: #FDF9FB;
+  --demo-border: #F0DEE7;
+  --demo-text: #2C1820;
+  --demo-text-muted: #7E6B74;
+  --demo-success: #1E824C;
+  --demo-success-bg: #E8F8F0;
+  --demo-danger: #C0392B;
+  --demo-danger-bg: #FDE8E6;
+  --demo-blue: #2980B9;
+  --demo-blue-bg: #EBF5FB;
+  --demo-radius: 16px;
+  --demo-shadow: 0 8px 30px rgba(142, 58, 89, 0.08);
+}
+
+/* ── شريط رأس الديمو العلوي والتنقل بين الأدوار ── */
+.demo-nav-header {
+  position: sticky;
+  top: 0;
+  z-index: 999;
+  background: linear-gradient(135deg, #2D1420 0%, #461C30 100%);
+  color: #FFF;
+  padding: 10px 18px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+  font-family: 'Cairo', system-ui, sans-serif;
+  direction: rtl;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.demo-nav-brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.demo-nav-badge {
+  background: linear-gradient(135deg, #D4AF37 0%, #F3E5AB 100%);
+  color: #2D1420;
+  font-size: 11px;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 20px;
+  letter-spacing: 0.5px;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.demo-nav-title {
+  font-size: 14px;
+  font-weight: 700;
+  color: #FFF;
+}
+
+.demo-nav-links {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.demo-nav-pill {
+  padding: 6px 12px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #E2CFD8;
+  background: rgba(255, 255, 255, 0.08);
+  text-decoration: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.demo-nav-pill:hover {
+  background: rgba(255, 255, 255, 0.2);
+  color: #FFF;
+  transform: translateY(-1px);
+}
+
+.demo-nav-pill.active {
+  background: linear-gradient(135deg, #D4AF37 0%, #A78116 100%);
+  color: #24111B;
+  font-weight: 800;
+  border-color: #F3E5AB;
+  box-shadow: 0 2px 10px rgba(212, 175, 55, 0.4);
+}
+
+.demo-nav-hub-btn {
+  background: rgba(255, 255, 255, 0.15);
+  color: #FFF;
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  padding: 6px 14px;
+  border-radius: 10px;
+  font-size: 12px;
+  font-weight: 700;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+
+.demo-nav-hub-btn:hover {
+  background: #FFF;
+  color: #461C30;
+}
+
+/* ── غلاف صفحة الديمو ── */
+.demo-page-container {
+  min-height: calc(100vh - 54px);
+  background-color: var(--demo-bg);
+  color: var(--demo-text);
+  font-family: 'Cairo', system-ui, sans-serif;
+  direction: rtl;
+  padding: 24px 20px 60px;
+}
+
+.demo-wrapper {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+/* ── هيدر داخلي فاخر للصفحات ── */
+.demo-role-banner {
+  background: linear-gradient(135deg, #FFF 0%, var(--demo-primary-light) 100%);
+  border: 1px solid var(--demo-border);
+  border-radius: var(--demo-radius);
+  padding: 22px 28px;
+  margin-bottom: 24px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  box-shadow: var(--demo-shadow);
+}
+
+.demo-role-user {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.demo-role-avatar {
+  width: 60px;
+  height: 60px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 3px solid var(--demo-gold);
+  box-shadow: 0 4px 12px rgba(212, 175, 55, 0.3);
+}
+
+.demo-role-name {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--demo-text);
+  margin-bottom: 4px;
+}
+
+.demo-role-desc {
+  font-size: 13px;
+  color: var(--demo-text-muted);
+}
+
+/* ── شبكة الإحصائيات والأرقام ── */
+.demo-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 16px;
+  margin-bottom: 24px;
+}
+
+.demo-stat-card {
+  background: var(--demo-surface);
+  border: 1px solid var(--demo-border);
+  border-radius: 14px;
+  padding: 18px 20px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  box-shadow: 0 2px 10px rgba(142, 58, 89, 0.04);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.demo-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 18px rgba(142, 58, 89, 0.08);
+}
+
+.demo-stat-icon-wrap {
+  width: 50px;
+  height: 50px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.demo-stat-icon-wrap.primary { background: var(--demo-primary-light); color: var(--demo-primary); }
+.demo-stat-icon-wrap.gold { background: var(--demo-gold-light); color: var(--demo-gold-dark); }
+.demo-stat-icon-wrap.success { background: var(--demo-success-bg); color: var(--demo-success); }
+.demo-stat-icon-wrap.blue { background: var(--demo-blue-bg); color: var(--demo-blue); }
+
+.demo-stat-label {
+  font-size: 12px;
+  color: var(--demo-text-muted);
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.demo-stat-val {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--demo-text);
+  line-height: 1.1;
+}
+
+/* ── كروت التبويبات الداخلية ── */
+.demo-tabs-bar {
+  display: flex;
+  gap: 8px;
+  background: #F3E7EE;
+  padding: 6px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  overflow-x: auto;
+}
+
+.demo-tab-btn {
+  padding: 10px 18px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 700;
+  border: none;
+  background: transparent;
+  color: var(--demo-text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  white-space: nowrap;
+  transition: all 0.2s ease;
+}
+
+.demo-tab-btn.active {
+  background: var(--demo-surface);
+  color: var(--demo-primary);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+/* ── قائمة مواعيد الكوافيرة ── */
+.demo-apt-card {
+  background: var(--demo-surface);
+  border: 1px solid var(--demo-border);
+  border-radius: 14px;
+  padding: 18px 20px;
+  margin-bottom: 14px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  transition: all 0.2s ease;
+}
+
+.demo-apt-card:hover {
+  border-color: var(--demo-primary);
+  box-shadow: 0 4px 14px rgba(142, 58, 89, 0.08);
+}
+
+.demo-apt-time-box {
+  background: var(--demo-gold-light);
+  border: 1px solid rgba(212, 175, 55, 0.3);
+  padding: 10px 14px;
+  border-radius: 10px;
+  text-align: center;
+  min-width: 90px;
+}
+
+.demo-apt-time {
+  font-size: 15px;
+  font-weight: 800;
+  color: #79570B;
+}
+
+.demo-apt-duration {
+  font-size: 11px;
+  color: #926E17;
+}
+
+.demo-apt-info {
+  flex: 1;
+  min-width: 200px;
+}
+
+.demo-apt-client {
+  font-size: 16px;
+  font-weight: 800;
+  color: var(--demo-text);
+  margin-bottom: 4px;
+}
+
+.demo-apt-service {
+  font-size: 13px;
+  color: var(--demo-primary);
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.demo-apt-notes {
+  font-size: 12px;
+  color: var(--demo-text-muted);
+  background: #FDF9FB;
+  padding: 4px 8px;
+  border-radius: 6px;
+  display: inline-block;
+}
+
+.demo-apt-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.demo-btn {
+  padding: 8px 16px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+  cursor: pointer;
+  border: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: all 0.2s ease;
+  font-family: inherit;
+}
+
+.demo-btn-primary {
+  background: linear-gradient(135deg, var(--demo-primary) 0%, var(--demo-primary-dark) 100%);
+  color: #FFF;
+  box-shadow: 0 3px 10px rgba(142, 58, 89, 0.25);
+}
+
+.demo-btn-primary:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 5px 14px rgba(142, 58, 89, 0.35);
+}
+
+.demo-btn-success {
+  background: linear-gradient(135deg, #27AE60 0%, #1E824C 100%);
+  color: #FFF;
+}
+
+.demo-btn-outline {
+  background: #FFF;
+  color: var(--demo-text);
+  border: 1px solid var(--demo-border);
+}
+
+.demo-btn-outline:hover {
+  background: #FDF5F8;
+  border-color: var(--demo-primary);
+}
+
+/* ── شبكة الخدمات والمنتجات في الكاشير والعميلات ── */
+.demo-items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 16px;
+}
+
+.demo-item-card {
+  background: var(--demo-surface);
+  border: 1px solid var(--demo-border);
+  border-radius: 14px;
+  overflow: hidden;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.demo-item-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(142, 58, 89, 0.1);
+}
+
+.demo-item-img {
+  width: 100%;
+  height: 140px;
+  object-fit: cover;
+}
+
+.demo-item-body {
+  padding: 14px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.demo-item-name {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--demo-text);
+  margin-bottom: 6px;
+}
+
+.demo-item-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.demo-item-price {
+  font-size: 17px;
+  font-weight: 800;
+  color: var(--demo-primary);
+}
+
+/* ── سلة الكاشير المباشرة ── */
+.demo-pos-layout {
+  display: grid;
+  grid-template-columns: 1fr 360px;
+  gap: 20px;
+}
+
+@media (max-width: 900px) {
+  .demo-pos-layout {
+    grid-template-columns: 1fr;
+  }
+}
+
+.demo-pos-cart {
+  background: var(--demo-surface);
+  border: 1px solid var(--demo-border);
+  border-radius: var(--demo-radius);
+  padding: 20px;
+  box-shadow: var(--demo-shadow);
+  display: flex;
+  flex-direction: column;
+  height: fit-content;
+}
+
+.demo-cart-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 10px 0;
+  border-bottom: 1px dashed var(--demo-border);
+}
+
+/* ── مودال فاتورة الطباعة للزبون ── */
+.demo-receipt-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  backdrop-filter: blur(4px);
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.demo-receipt-paper {
+  background: #FFF;
+  width: 100%;
+  max-width: 380px;
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+  font-family: 'Courier New', Courier, monospace, 'Cairo';
+  direction: rtl;
+}
+
+.demo-receipt-header {
+  text-align: center;
+  border-bottom: 2px dashed #333;
+  padding-bottom: 12px;
+  margin-bottom: 14px;
+}
+
+.demo-receipt-title {
+  font-size: 18px;
+  font-weight: 900;
+  color: #111;
+}
+
+.demo-receipt-line {
+  display: flex;
+  justify-content: space-between;
+  font-size: 13px;
+  margin-bottom: 6px;
+}

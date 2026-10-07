@@ -8,6 +8,7 @@ import TasksPage from './pages/TasksPage'
 import TeamPage from './pages/TeamPage'
 import OffersPage from './pages/OffersPage'
 import ProductsPage from './pages/ProductsPage'
+import BuffetPage from './pages/BuffetPage'
 import ReviewsPage from './pages/ReviewsPage'
 import OwnerChangePasswordPage from './pages/OwnerChangePasswordPage'
 
@@ -38,6 +39,7 @@ function OwnerShell() {
           <Route path="/team"             element={<TeamPage />} />
           <Route path="/offers"           element={<OffersPage />} />
           <Route path="/products"         element={<ProductsPage />} />
+          <Route path="/buffet"           element={<BuffetPage />} />
           <Route path="/reviews"          element={<ReviewsPage />} />
           <Route path="/change-password"  element={<OwnerChangePasswordPage />} />
           <Route path="*"                 element={<Navigate to="/owner" replace />} />

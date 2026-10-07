@@ -5,11 +5,10 @@ export default function DemoNavHeader({ currentRole = '' }) {
   const path = location.pathname
 
   const roles = [
-    { id: 'owner', label: '👑 لوحة الأونر (صاحبة الصالون)', path: '/demo/owner' },
     { id: 'stylist', label: '✂️ تطبيق الكوافيرة (الستاف)', path: '/demo/stylist' },
-    { id: 'marketing', label: '🏷️ إدارة التسويق والعروض', path: '/demo/marketing' },
     { id: 'cashier', label: '🖥️ الكاشير ونقاط البيع', path: '/demo/cashier' },
-    { id: 'client', label: '🌸 منصة العميلات الملكية', path: '/demo/client' },
+    { id: 'owner', label: '👑 لوحة الأونر (صاحبة الصالون)', path: '/demo/owner' },
+    { id: 'marketing', label: '🏷️ إدارة التسويق والعروض', path: '/demo/marketing' },
   ]
 
   return (
@@ -22,6 +21,21 @@ export default function DemoNavHeader({ currentRole = '' }) {
       </div>
 
       <nav className="demo-nav-links">
+        <a
+          href="https://abdelrhman-mahrous.github.io/salon-noha-elsony-demo/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="demo-nav-pill"
+          style={{
+            background: 'linear-gradient(135deg, rgba(212,175,55,0.3) 0%, rgba(243,229,171,0.2) 100%)',
+            borderColor: '#D4AF37',
+            color: '#F3E5AB',
+            fontWeight: '800',
+          }}
+        >
+          📱 تطبيق الموبايل (نهى السني) ↗
+        </a>
+
         {roles.map((r) => {
           const isActive = currentRole === r.id || path.startsWith(r.path)
           return (
@@ -34,21 +48,6 @@ export default function DemoNavHeader({ currentRole = '' }) {
             </Link>
           )
         })}
-
-        <a
-          href="https://abdelrhman-mahrous.github.io/salon-noha-elsony-demo/"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="demo-nav-pill"
-          style={{
-            background: 'linear-gradient(135deg, rgba(212,175,55,0.2) 0%, rgba(243,229,171,0.1) 100%)',
-            borderColor: '#D4AF37',
-            color: '#F3E5AB',
-            fontWeight: '700',
-          }}
-        >
-          📱 تطبيق الموبايل (نهى السني) ↗
-        </a>
       </nav>
 
       <div>
